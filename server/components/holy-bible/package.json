@@ -1,0 +1,89 @@
+{
+  "_args": [
+    [
+      "holy-bible",
+      "C:\\development\\scratch\\dsimmons\\node-dev"
+    ]
+  ],
+  "_from": "holy-bible@*",
+  "_id": "holy-bible@1.0.1",
+  "_inCache": true,
+  "_location": "/holy-bible",
+  "_nodeVersion": "0.11.13",
+  "_npmUser": {
+    "email": "bricejlin@gmail.com",
+    "name": "bricejlin"
+  },
+  "_npmVersion": "2.7.3",
+  "_phantomChildren": {},
+  "_requested": {
+    "name": "holy-bible",
+    "raw": "holy-bible",
+    "rawSpec": "",
+    "scope": null,
+    "spec": "*",
+    "type": "range"
+  },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/holy-bible/-/holy-bible-1.0.1.tgz",
+  "_shasum": "ef750a7cf5d83af0b3f99f926610f5b5c7c89f47",
+  "_shrinkwrap": null,
+  "_spec": "holy-bible",
+  "_where": "C:\\development\\scratch\\dsimmons\\node-dev",
+  "author": {
+    "email": "bricejlin@gmail.com",
+    "name": "Brice Lin"
+  },
+  "bugs": {
+    "url": "https://github.com/bricejlin/holy-bible/issues"
+  },
+  "dependencies": {
+    "es6-promise": "^2.0.1",
+    "gulp-load-plugins": "^0.9.0",
+    "zero-fill": "~2.2.0"
+  },
+  "description": "A small library providing access to the Bible",
+  "devDependencies": {
+    "blue-tape": "^0.1.8",
+    "gulp": "^3.9.0",
+    "gulp-jshint": "^1.9.4",
+    "gulp-load-plugins": "^0.9.0",
+    "jshint-stylish": "^1.0.1"
+  },
+  "directories": {},
+  "dist": {
+    "shasum": "ef750a7cf5d83af0b3f99f926610f5b5c7c89f47",
+    "tarball": "http://registry.npmjs.org/holy-bible/-/holy-bible-1.0.1.tgz"
+  },
+  "gitHead": "c557b02c7c432613fa034cc5b8d7f8028239cd68",
+  "homepage": "https://github.com/bricejlin/holy-bible",
+  "installable": true,
+  "keywords": [
+    "bible",
+    "christian",
+    "christianity",
+    "god",
+    "scripture",
+    "word"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "maintainers": [
+    {
+      "name": "bricejlin",
+      "email": "bricejlin@gmail.com"
+    }
+  ],
+  "name": "holy-bible",
+  "optionalDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bricejlin/holy-bible.git"
+  },
+  "scripts": {
+    "test": "gulp test"
+  },
+  "version": "1.0.1"
+}
