@@ -2,6 +2,13 @@
 
 // Production specific configuration
 // =================================
+function getDbName(appName){
+	if(appName==='everyworddev'){
+		return 'everyword';
+	}
+	return appName;
+}
+
 module.exports = {
   // Server IP
   ip:       process.env.OPENSHIFT_NODEJS_IP ||
@@ -17,7 +24,7 @@ module.exports = {
   mongo: {
     uri:    process.env.MONGOLAB_URI ||
             process.env.MONGOHQ_URL ||
-            process.env.OPENSHIFT_MONGODB_DB_URL+process.env.OPENSHIFT_APP_NAME ||
-            'mongodb://localhost/angulardev'
+            process.env.OPENSHIFT_MONGODB_DB_URL+getDbName(process.env.OPENSHIFT_APP_NAME) ||
+            'mongodb://localhost/everyword'
   }
 };
