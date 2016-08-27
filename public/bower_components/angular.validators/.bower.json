@@ -86,7 +86,7 @@
     "tag": "v4.4.2",
     "commit": "6ff885200c2b44eb4e8fda078c7a0a529dfc8dff"
   },
-  "_source": "git://github.com/gkaimakas/angular.validators.git",
+  "_source": "https://github.com/gkaimakas/angular.validators.git",
   "_target": "4.4.2",
   "_originalSource": "angular.validators"
 }

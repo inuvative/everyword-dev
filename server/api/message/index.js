@@ -8,6 +8,7 @@ var router = express.Router();
 router.get('/', controller.index);
 router.get('/:id', controller.show);
 router.post('/findMessage', controller.findMessage)
+router.get('/:user/count',controller.messageCount);
 router.post('/', controller.create);
 router.post('/sendEmail',controller.sendEmail);
 router.put('/:id', controller.update);

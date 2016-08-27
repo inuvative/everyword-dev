@@ -159,7 +159,7 @@ exports.getMessages = function(req, res) {
 	    if(err) { return handleError(res, err); }    
 		var opts =  {path: 'messages.to messages.from', model: 'User'};
 		Homebase.populate(homebase, opts, function(err, hb) {			
-			return res.json(hb);
+			return res.json(hb.messages);
 		})	    
 	  });
 };

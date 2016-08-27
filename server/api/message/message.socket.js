@@ -7,16 +7,18 @@
 var Message = require('./message.model');
 
 exports.register = function(socket) {
-  Message.schema.post('save', function (doc) {
-    onSave(socket, doc);
+  Message.schema.post('save', function (message) {
+    Message.findOne(message).populate('to').exec(function(err,msg) {
+    	onSave(socket, msg);
+    });
   });
   Message.schema.post('remove', function (doc) {
     onRemove(socket, doc);
   });
 }
 
-function onSave(socket, doc, cb) {
-  socket.emit('message:save', doc);
+function onSave(socket, msg, cb) {
+  socket.emit('message'+msg.to._id+':save', msg);
 }
 
 function onRemove(socket, doc, cb) {
