@@ -78,7 +78,7 @@ exports.annotationCount = function(req, res){
 		    });
 		    var count = comments.length + annotation.references.length + annotation.media.length;
 		    
-		    return res.json({ 'count' : count});
+		    return res.json({ 'commentCount' : comments.length, 'referenceCount': annotation.references.length, 'mediaCount': annotation.media.length});
 	  });	
 };
 

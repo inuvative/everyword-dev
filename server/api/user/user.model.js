@@ -17,7 +17,9 @@ var UserSchema = new Schema({
   salt: String,
   facebook: {},
   google: {},
-  github: {}
+  github: {},
+  resetToken: String,
+  resetExpiry: Date
 });
 
 /**

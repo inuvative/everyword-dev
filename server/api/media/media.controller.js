@@ -4,7 +4,6 @@ var _ = require('lodash');
 var Media = require('./media.model');
 var Image = require('./media.image');
 var multiparty = require('multiparty');
-var Feed = require('../homebase/feed.model');
 var FeedEntry = require('../homebase/feed.entry');
 
 // Get list of medias
@@ -70,6 +69,10 @@ exports.update = function(req, res) {
     var updated = _.merge(media, req.body);
     updated.save(function (err) {
       if (err) { return handleError(res, err); }
+      FeedEntry.findOne({media: media._id}, function(err,entry){
+    	  entry.date = new Date();
+    	  entry.save();
+      });      
       return res.status(200).json(media);
     });
   });
@@ -82,6 +85,9 @@ exports.destroy = function(req, res) {
     if(!media) { return res.status(404).send('Not Found'); }
     media.remove(function(err) {
       if(err) { return handleError(res, err); }
+      FeedEntry.findOne({media: media._id}, function(err,entry){
+    	  entry.remove();
+      });
       return res.status(204).send('No Content');
     });
   });
@@ -92,21 +98,9 @@ function handleError(res, err) {
 }
 
 function updateFeed(media) {
-    var dt = new Date();
-    var mm = dt.getMonth();
-    var yyyy = dt.getFullYear();
-    Feed.findOne({user: media.user, month: mm, year: yyyy}, function(err1,feed) {
-    		if(err1) { return handleError(res, err1); }
-    		if(!feed){
-    			feed = new Feed({user: media.user, month: mm, year: yyyy});
-    			feed.save(function(err) {
-    				if(err) return handleError(err);
-    			});
-    		}
-    		var entry = new FeedEntry({feed: feed._id, media: media._id, user: media.user, date: media.date});
-    		entry.save(function(err2){
-    			if(err2) return handleError(err2);
-    		});
-    	});
+    var entry = new FeedEntry({media: media._id, user: media.user, date: media.date});
+    entry.save(function(err2){
+    	if(err2) return handleError(err2);
+	});
 	
 }

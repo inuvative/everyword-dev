@@ -9,7 +9,8 @@ var CommentSchema = new Schema({
   media: { type: Schema.ObjectId, ref: 'Media'},
   date: {type: Date, default: Date.now},
   isPrivate: Boolean,
-  likes: Number,
+  likes: {type: Number, default: 0},
+  likers : [{type: Schema.ObjectId, ref: 'Like'}],
   remarks: [{type: Schema.ObjectId, ref: 'Remark'}],
   group: {type: Schema.ObjectId, ref: 'Group'}
 });

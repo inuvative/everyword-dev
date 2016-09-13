@@ -10,6 +10,7 @@ var GroupSchema = new Schema({
   members: [{type: Schema.ObjectId, ref: 'User'}],
   invited: [{type: Schema.ObjectId, ref: 'User'}],
   requests: [{type: Schema.ObjectId, ref: 'User'}],
+  emails: [String],
   active: Boolean
 });
 

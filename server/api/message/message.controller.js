@@ -110,12 +110,23 @@ exports.sendEmail = function(req, res) {
 	var to = req.body.to;
 	var from = req.body.from;
     var subject = req.body.subject;
-    var messageBody = from.name + ' has invited you to join their group<br/>'+ req.body.group;
-    messageBody += ' on '+ req.body.url +'.';
-    if(req.body.message) {
-    	messageBody += ' With the following message:<br/> '+req.body.message;
+    var messageBody = '';
+    if(req.body.group) {
+    	messageBody = from.name + ' has invited you to join their group<br/>'+ req.body.group;
+    	messageBody += ' on '+ req.body.url +'.';
+    	if(req.body.message) {
+    		messageBody += ' With the following message:<br/> '+req.body.message;
+    	}
+    	messageBody += '<br/><a href="'+req.body.link+'">Join</a>'
     }
-    messageBody += '<br/><a href='+req.body.link+'>Join</a>'
+    if(req.body.resetPwd){
+    	messageBody = 'Please use the following link to ';
+    	messageBody += '<a href="'+req.body.link+'">reset your password.</a>';
+    	messageBody += '<br/>If you did not request this password change please feel free to ignore this email.';
+    	messageBody += '<br/>This password reset is only valid for the next 24 hrs.';
+    	messageBody += '<br/>Thanks,<br/> Everyword Support Team<br/>';
+    	messageBody += req.body.url
+    }
 // setup e-mail data with unicode symbols 
     var mailOptions = {
         from: 'everywordbible@gmail.com', // sender address 

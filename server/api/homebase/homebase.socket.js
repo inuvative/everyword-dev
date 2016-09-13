@@ -14,17 +14,17 @@ exports.register = function(socket) {
   Homebase.schema.post('remove', function (doc) {
     onRemove(socket, doc);
   });
-  FeedEntry.schema.post('save', function (doc) {
-	    FeedEntry.findOne(doc).populate('feed').exec(function(err,fe){
-	    	onSaveToFeed(socket, fe);
-	    });
-  });
-  FeedEntry.schema.pre('remove', function (next) {
-	    FeedEntry.findOne(this).populate('feed').exec(function(err,fe){
-	    	onRemoveFromFeed(socket, fe);
-	    	next();
-	    });
-  });
+//  FeedEntry.schema.post('save', function (doc) {
+//	    FeedEntry.findOne(doc).populate('comment media reference user').exec(function(err,fe){
+//	    	onSaveToFeed(socket, fe);
+//	    });
+//  });
+//  FeedEntry.schema.pre('remove', function (next) {
+//	    FeedEntry.findOne(this).populate('comment media reference user').exec(function(err,fe){
+//	    	onRemoveFromFeed(socket, fe);
+//	    	next();
+//	    });
+//  });
 
   
 }
@@ -38,9 +38,9 @@ function onRemove(socket, doc, cb) {
 }
 
 function onSaveToFeed(socket, doc, cb) {
-	  socket.emit('feed'+doc.feed._id+':save', doc);
+	  socket.emit('feed'+doc.user._id+':save', doc);
 }
 
 function onRemoveFromFeed(socket, doc, cb) {
-  socket.emit('feed'+doc.feed._id+':remove', doc);
+  socket.emit('feed'+doc.user._id+':remove', doc);
 }

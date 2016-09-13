@@ -99,8 +99,10 @@ exports.checkEmail = function(req, res, next) {
 	    email: email
 	  }, '-salt -hashedPassword', function(err, user) { // don't ever give out the password or salt
 	    if (err) return next(err);
-	    if (!user) return res.send(null);
-	    res.json(user);
+	    if (!user){
+	    	return res.send(null);
+	    }
+	    return res.json(user);
 	  });
 };
 

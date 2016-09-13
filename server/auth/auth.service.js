@@ -70,7 +70,18 @@ function setTokenCookie(req, res) {
   res.redirect('/');
 }
 
+function findUserByEmail(email) {
+	return User.findOne({email: email}).exec();
+}
+
+function resetPassword(email,password,token){
+	User.findOne({email: email}, function(err,user){
+		
+	})
+}
 exports.isAuthenticated = isAuthenticated;
 exports.hasRole = hasRole;
 exports.signToken = signToken;
 exports.setTokenCookie = setTokenCookie;
+exports.findUserByEmail=findUserByEmail;
+exports.resetUserPassword=resetPassword;

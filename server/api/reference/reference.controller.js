@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var Reference = require('./reference.model');
+var FeedEntry = require('../homebase/feed.entry');
 
 // Get list of references
 exports.index = function(req, res) {
@@ -24,6 +25,8 @@ exports.show = function(req, res) {
 exports.create = function(req, res) {
   Reference.create(req.body, function(err, reference) {
     if(err) { return handleError(res, err); }
+    var entry = new FeedEntry({reference: reference._id, user: reference.user, date: reference.date});
+    entry.save();	
     return res.status(201).json(reference);
   });
 };
@@ -37,6 +40,10 @@ exports.update = function(req, res) {
     var updated = _.merge(reference, req.body);
     updated.save(function (err) {
       if (err) { return handleError(res, err); }
+      FeedEntry.findOne({reference: reference._id}, function(err, entry) {
+      	entry.date = new Date();
+      	entry.save();
+      });
       return res.status(200).json(reference);
     });
   });
@@ -49,6 +56,9 @@ exports.destroy = function(req, res) {
     if(!reference) { return res.status(404).send('Not Found'); }
     reference.remove(function(err) {
       if(err) { return handleError(res, err); }
+      FeedEntry.findOne({reference: reference._id}, function(err,entry){
+    	  entry.remove();
+      });      
       return res.status(204).send('No Content');
     });
   });

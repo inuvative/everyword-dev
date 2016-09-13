@@ -1,6 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
+var each = require('async-each-series');
 var mongooseTypes = require('mongoose').Types;
 var Group = require('./group.model');
 var Homebase = require('../homebase/homebase.model');
@@ -210,7 +211,37 @@ function getFeed(res, owner,users,callback){
 	  var yyyy = dt.getFullYear();
 	  var feed = [];
 	  users.push(owner);
-	  Comment.find({user : { $in : users}, date: {$lte: dt}}).sort('-date').populate('user').exec(function(err,comments){
+	  FeedEntry.find({user : {$in : users}, date: {$lte: dt}}).sort('-date')
+	  	.populate('user comment media reference').exec(function(err,entries){
+			  each(entries, function(e ,next) {
+				  if(e.comment){
+					  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+						  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+							  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
+							  next();								  
+						  });
+					  });
+				  }
+				  else if(e.media) {
+					  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err,med){
+						  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
+						  next();
+					  });
+				  }
+				  else if(e.reference){
+					  Reference.populate(e.reference,{path: 'user', model: 'User'}, function(err,ref){
+						 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
+						 next();
+					  });
+				  } else {
+					  next();						  
+				  }
+			  },function(err){
+				  callback(feed);
+			  });
+	  });
+
+/*	  Comment.find({user : { $in : users}, date: {$lte: dt}}).sort('-date').populate('user remarks').exec(function(err,comments){
 		  if(comments){
 			  for(var c in comments){
 				  var comment = comments[c];
@@ -235,6 +266,7 @@ function getFeed(res, owner,users,callback){
 			 });
 		  });
 	  });
+*/
 };
 
 function addToFeed(res,owner,users){

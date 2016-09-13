@@ -15,6 +15,7 @@ router.get('/:id/comments', controller.getComments);
 router.get('/:id/following', controller.getFollowing);
 router.get('/:id/groups', controller.getGroups);
 router.get('/:id/tags', controller.getTags);
+router.get('/:id/likes', controller.getLikes);
 router.get('/:id/messages', controller.getMessages);
 router.get('/:id/feed', controller.getFeed);
 //router.put('/:id/feed', controller.updateFeed);
