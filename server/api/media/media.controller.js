@@ -26,7 +26,11 @@ exports.show = function(req, res) {
 // Creates a new media in the DB.
 exports.create = function(req, res) {
   var form = new multiparty.Form();	 
+  form.maxFieldsSize = 5 * 1024 * 1024;
   form.parse(req, function(err, fields, files) {
+	  if(err){
+		  return handleError(res, err);
+	  }
 	  var body = {
 				url: fields.url[0],
 				name: fields.name[0],
@@ -94,7 +98,7 @@ exports.destroy = function(req, res) {
 };
 
 function handleError(res, err) {
-  return res.status(500).send(err);
+  return res.status(500).json(err);
 }
 
 function updateFeed(media) {
