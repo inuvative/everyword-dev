@@ -8,7 +8,7 @@ var Media = require('./media.model');
 
 exports.register = function(socket) {
   Media.schema.post('save', function (doc) {
-	  Media.findOne(doc).populate('user image').exec(function(err, media){
+	  Media.findById(doc._id).populate('user image').exec(function(err, media){
 		  onSave(socket, media);
 	  });
   });

@@ -25,12 +25,8 @@ exports.index = function(req, res) {
 exports.show = function(req, res) {
   Group.findById(req.params.id).populate("creator").exec(function (err, group) {
     if(err) { return handleError(res, err); }
-    if(!group) { return res.status(404).send('Not Found'); }
-//    var members = group.members.map(function(u){return u._id;});
-    getFeed(res,group.creator._id,group.members,function(feed){
-//		members = members.filter(function(u) {return u._id !== group.creator._id;});
-	    return res.json({'name': group.name, 'creator': group.creator, 'memberIds': group.members, 'feed': feed});		
-	});
+    if(!group) { return res.status(404).send('Not Found'); }   
+	return res.json({'name': group.name, 'creator': group.creator, 'memberIds': group.members.concat(group.creator._id)});
 //    return res.json(group);
   });
 };
@@ -205,40 +201,44 @@ exports.removeMembers = function(req, res) {
   });
 };
 
-function getFeed(res, owner,users,callback){
-	  var dt = new Date();
+exports.getFeed= function(req, res){
+	  var owner = req.params.id;  
+	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();
-	  var feed = [];
-	  users.push(owner);
-	  FeedEntry.find({user : {$in : users}, date: {$lte: dt}}).sort('-date')
-	  	.populate('user comment media reference').exec(function(err,entries){
-			  each(entries, function(e ,next) {
-				  if(e.comment){
-					  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
-						  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
-							  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
-							  next();								  
+	  var dateQuery = req.query.after === undefined ? {$lte:dt} : {$lt : dt};
+	  Group.findById(req.params.id).populate('creator members').exec(function(err, group) {
+		  var feed=[];
+		  var users = group.members.concat(group.creator).map(function(u){return u._id;});		  
+		  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
+		  	.populate('user comment media reference').exec(function(err,entries){
+				  each(entries, function(e ,next) {
+					  if(e.comment){
+						  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+							  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+								  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
+								  next();								  
+							  });
 						  });
-					  });
-				  }
-				  else if(e.media) {
-					  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err,med){
-						  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
-						  next();
-					  });
-				  }
-				  else if(e.reference){
-					  Reference.populate(e.reference,{path: 'user', model: 'User'}, function(err,ref){
-						 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
-						 next();
-					  });
-				  } else {
-					  next();						  
-				  }
-			  },function(err){
-				  callback(feed);
-			  });
+					  }
+					  else if(e.media) {
+						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err,med){
+							  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
+							  next();
+						  });
+					  }
+					  else if(e.reference){
+						  Reference.populate(e.reference,{path: 'user', model: 'User'}, function(err,ref){
+							 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
+							 next();
+						  });
+					  } else {
+						  next();						  
+					  }
+				  },function(err){
+					  return res.json(feed)
+				  });		  	
+		  	});
 	  });
 
 /*	  Comment.find({user : { $in : users}, date: {$lte: dt}}).sort('-date').populate('user remarks').exec(function(err,comments){

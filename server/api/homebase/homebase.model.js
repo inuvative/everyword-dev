@@ -8,7 +8,7 @@ var HomebaseSchema = new Schema({
     type: Schema.ObjectId,
     ref: 'User'
   },
-  avator: {type: Schema.ObjectId, ref: 'Image'},
+  avatar: {type: Schema.ObjectId, ref: 'Image'},
   lastPlace : { book: Number, verse: [Number]},
   notebook : {},
   groups: [ {type: Schema.ObjectId, ref: 'Group'}],

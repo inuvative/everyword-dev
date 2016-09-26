@@ -5,6 +5,7 @@ var Media = require('./media.model');
 var Image = require('./media.image');
 var multiparty = require('multiparty');
 var FeedEntry = require('../homebase/feed.entry');
+var Like = require('../comment/like.model');
 
 // Get list of medias
 exports.index = function(req, res) {
@@ -71,14 +72,39 @@ exports.update = function(req, res) {
     if (err) { return handleError(res, err); }
     if(!media) { return res.status(404).send('Not Found'); }
     var updated = _.merge(media, req.body);
-    updated.save(function (err) {
+    updated.save(function (err,media) {
       if (err) { return handleError(res, err); }
       FeedEntry.findOne({media: media._id}, function(err,entry){
     	  entry.date = new Date();
     	  entry.save();
       });      
-      return res.status(200).json(media);
+      var opts = [{path: 'user', model: 'User'}];//,{path: 'remarks.user', model: 'User'}];
+      Media.populate(media,opts, function(err,media) {
+    	  return res.status(200).json(media);
+      });
     });
+  });
+};
+
+//Updates an existing comment in the DB.
+exports.like = function(req, res) {
+  if(req.body._id) { delete req.body._id; }
+  Media.findById(req.params.id).populate('likers').exec(function (err, media) {
+    if (err) { return handleError(res, err); }
+    if(!media) { return res.status(404).send('Not Found'); }
+    var likeEntry = new Like({user:req.body.user,media: media._id});
+    likeEntry.save(function(err,like){
+    	if(err) return handleError(res, err); 
+    	media.likers.push(like.user)
+    	media.likes += 1;
+        media.save(function (err, med) {
+            if (err) { return handleError(res, err); }
+            var opts = [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}];//,{path: 'remarks.user', model: 'User'}];
+            Media.populate(med,opts, function(err,med) {
+            	return res.status(200).json(med);    	    	
+            });
+          });    	
+    })
   });
 };
 

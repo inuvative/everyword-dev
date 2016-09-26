@@ -8,7 +8,7 @@ var Reference = require('./reference.model');
 
 exports.register = function(socket) {
   Reference.schema.post('save', function (doc) {
-    Reference.findOne(doc).populate('user').exec(function(err,ref){
+    Reference.findById(doc._id).populate('user').exec(function(err,ref){
     	onSave(socket, ref);
     });
   });

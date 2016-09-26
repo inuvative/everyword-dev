@@ -178,7 +178,11 @@ exports.findReferences = function(req, res) {
 	    .exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
 		    if(!annotation) { return res.send(null); }
-	    	return res.json(annotation);
+		    var opts = {path: 'user', model: 'User'}; 
+	    	Reference.populate(annotation.references, opts).then(function(references){
+	    		annotation.references = references;
+	    		return res.json(annotation);
+	    	});		    
 	  });
 };
 

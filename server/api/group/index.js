@@ -11,7 +11,7 @@ router.post('/', controller.create);
 router.put('/:id', controller.update);
 router.patch('/:id', controller.update);
 router.delete('/:id', controller.destroy);
-
+router.get('/:id/feed', controller.getFeed);
 router.get('/:id/members', controller.showMembers);
 router.put('/:id/members', controller.updateMembers);
 router.put('/:id/members/delete', controller.removeMembers);
