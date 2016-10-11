@@ -3,6 +3,8 @@
 var _ = require('lodash');
 var Remark = require('./remark.model');
 var Comment = require('../comment/comment.model');
+var Reference = require('../reference/reference.model');
+var Media = require('../media/media.model');
 
 // Get list of remarks
 exports.index = function(req, res) {
@@ -25,12 +27,30 @@ exports.show = function(req, res) {
 exports.create = function(req, res) {
   Remark.create(req.body, function(err, remark) {
     if(err) { return handleError(res, err); }
-    Comment.findById(remark.comment, function(err, comm){
-    	if(comm) {
-        	comm.remarks.push(remark._id);
-        	comm.save();    		
-    	}
-    });
+    if(remark.comment){
+        Comment.findById(remark.comment, function(err, comm){
+        	if(comm) {
+            	comm.remarks.push(remark._id);
+            	comm.save();    		
+        	}
+        });    	
+    }
+    if(remark.reference){
+        Reference.findById(remark.reference, function(err, ref){
+        	if(ref) {
+            	ref.remarks.push(remark._id);
+            	ref.save();    		
+        	}
+        });    	    	
+    }
+    if(remark.media){
+        Media.findById(remark.media, function(err, media){
+        	if(media) {
+        		media.remarks.push(remark._id);
+        		media.save();    		
+        	}
+        });    	
+    }
     return res.status(201).json(remark);
   });
 };

@@ -107,15 +107,19 @@ exports.getFeed = function(req, res){
 						  });
 					  }
 					  else if(e.media) {
-						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err,med){
-							  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
-							  next();
+						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+							  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+								  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
+								  next();
+							  });
 						  });
 					  }
 					  else if(e.reference){
-						  Reference.populate(e.reference,{path: 'user', model: 'User'}, function(err,ref){
-							 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
-							 next();
+						  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+							 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+								 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
+								 next();
+							 });
 						  });
 					  } else {
 						  next();						  

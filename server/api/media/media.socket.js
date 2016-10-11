@@ -8,8 +8,10 @@ var Media = require('./media.model');
 
 exports.register = function(socket) {
   Media.schema.post('save', function (doc) {
-	  Media.findById(doc._id).populate('user image').exec(function(err, media){
-		  onSave(socket, media);
+	  Media.findById(doc._id).populate('user image remarks').exec(function(err, media){
+		  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}], function(err, med){
+				onSave(socket, med);
+			});
 	  });
   });
   Media.schema.post('remove', function (doc) {
