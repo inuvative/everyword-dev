@@ -9,13 +9,12 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 var express = require('express');
 var mongoose = require('mongoose');
-var mockgoose = require('mockgoose');
-
 
 var config = require('./config/environment');
 var mockdb = null;
 // Connect to database
 if(process.env.NODE_ENV==='test'){
+	var mockgoose = require('mockgoose');
 	mockgoose(mongoose).then(function(mockgoose_uri) {
 		mockgoose.reset();
 		mockdb = mockgoose_uri;
