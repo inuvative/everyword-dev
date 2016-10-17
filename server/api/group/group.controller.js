@@ -209,7 +209,7 @@ exports.getFeed= function(req, res){
 	  var dateQuery = req.query.after === undefined ? {$lte:dt} : {$lt : dt};
 	  Group.findById(req.params.id).populate('creator members').exec(function(err, group) {
 		  var feed=[];
-		  var users = group.members.concat(group.creator).map(function(u){return u._id;});		  
+		  var users = group.members.concat(group.creator).filter(Boolean).map(function(u){return u._id;});		  
 		  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
 		  	.populate('user comment media reference').exec(function(err,entries){
 				  each(entries, function(e ,next) {
