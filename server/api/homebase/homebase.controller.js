@@ -157,9 +157,9 @@ exports.getFeed = function(req, res){
 }
 
 exports.getComments = function(req, res) {
-	  Homebase.findOne({ login: req.params.id}).populate('comments').exec(function (err, homebase) {
+	  FeedEntry.find({ user: req.params.id}, function (err, entries) {
 	    if(err) { return handleError(res, err); }    
-	    return res.json(homebase.comments);
+	    return res.json(entries);
 	  });
 };
 
@@ -182,7 +182,8 @@ exports.getFollowing = function(req, res) {
     var all=req.query.all=="true" ? true : false;
 
 	Homebase.findOne({ login: req.params.id}).populate('following').exec(function (err, homebase) {
-	    if(err) { return handleError(res, err); }  
+	    if(err) { return handleError(res, err); }
+	    if(!homebase) return res.send(null);
 	    User.findById(req.params.id, function(err,user){
 	    	if(user.role==='guest' && homebase.following.length===0){
 	    		User.find({role:'user'}).limit(20).exec(function(err,users){

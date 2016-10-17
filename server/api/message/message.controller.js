@@ -110,7 +110,7 @@ exports.sendEmail = function(req, res) {
 	var to = req.body.to;
 	var from = req.body.from;
     var subject = req.body.subject;
-    var messageBody = '';
+    var messageBody = req.body.message || '';
     if(req.body.group) {
     	messageBody = from.name + ' has invited you to join their group<br/>'+ req.body.group;
     	messageBody += ' on '+ req.body.url +'.';
