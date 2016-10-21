@@ -45,16 +45,32 @@ exports.create = function(req, res) {
 // Updates an existing annotation in the DB.
 exports.update = function(req, res) {
   if(req.body._id) { delete req.body._id; }
-  Annotation.findById(req.params.id, function (err, annotation) {
+  Annotation.findById(req.params.id,function (err, annotation) {
     if (err) { return handleError(res, err); }
     if(!annotation) { return res.status(404).send('Not Found'); }
-    _.extend(annotation, req.body);
+    var objectIds = function(id) { return mongooseTypes.ObjectId(id); } 
+    if(req.body.comments){
+    	annotation.comments = updateAnnotation(annotation.comments,_.map(req.body.comments,objectIds),req.body.remove);
+    }
+    if(req.body.references){
+    	annotation.references = updateAnnotaion(annotation.references, _.map(req.body.references,objectIds), req.body.remove);
+    }
+    if(req.body.media) {
+    	annotation.media = updateAnnotation(annotation.media,_.map(req.body.media,objectIds),req.body.remove);
+    }
     annotation.save(function (err) {
       if (err) { return handleError(res, err); }
       return res.status(200).json(annotation);
     });
   });
 };
+
+function updateAnnotation(current,updates,toDelete){
+	if(toDelete){
+		return _.differenceBy(current,updates,'id');
+	}
+	return _.unionBy(current,updates,'id');
+}
 
 // Deletes a annotation from the DB.
 exports.destroy = function(req, res) {
@@ -73,8 +89,9 @@ exports.annotationCount = function(req, res){
 	  .populate('comments references media').exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
 		    if(!annotation) { return res.send(null); }
+		    var groups = req.body.groups ? _.map(req.body.groups,function(g){return mongooseTypes.ObjectId(g).id;}) : [];
 		    var comments = annotation.comments.filter(function(c) {
-		    	return !c.isPrivate || c.user.id===mongooseTypes.ObjectId(req.params.user).id;
+		    	return !c.isPrivate || (c.group && groups.indexOf(c.group.id) !==-1) || c.user.id===mongooseTypes.ObjectId(req.params.user).id;
 		    });
 		    var count = comments.length + annotation.references.length + annotation.media.length;
 		    
