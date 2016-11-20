@@ -16,7 +16,6 @@ var mockdb = null;
 if(process.env.NODE_ENV==='test'){
 	var mockgoose = require('mockgoose');
 	mockgoose(mongoose).then(function(mockgoose_uri) {
-		mockgoose.reset();
 		mockdb = mockgoose_uri;
 		mongoose.connect(config.mongo.uri, config.mongo.options);
 		mongoose.connection.on('error', function(err) {
@@ -58,7 +57,17 @@ function exitHandler(options, err) {
     if (options.cleanup) {
     	console.log('clean');
     	if(mockdb){
-    		mongoose.unmock();
+    		mongoose.unmock(function(){
+    			console.log('Unmocking db');
+    		});
+    	}
+    	if(mockgoose){
+    		mockgoose.reset(function(err){
+    			console.log("reseting mockgoose")
+    			if(err){
+    				console.log(err);
+    			}
+    		});
     	}
     }
     if (err) console.log(err.stack);

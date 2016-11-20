@@ -8,7 +8,7 @@ var Message = require('./message.model');
 
 exports.register = function(socket) {
   Message.schema.post('save', function (message) {
-    Message.findOne(message).populate('to').exec(function(err,msg) {
+    Message.findById(message._id).populate('to').exec(function(err,msg) {
     	onSave(socket, msg);
     });
   });

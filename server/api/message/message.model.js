@@ -16,6 +16,7 @@ var MessageSchema = new Schema({
 	body : String,
 	hasAction: Boolean,
 	read: {type: Boolean, default: false},
+	archived: {type: Boolean, default: false},
 	action: { requestType: String, url: String, requestBody: {}, completed: {type: Boolean, default: false}},
 	date: {type: Date, default: Date.now}
 //	attachment : mediaObj

@@ -8,14 +8,21 @@
 var User = require('../api/user/user.model');
 
 User.find({}, function (err, users) {
-    if(!users){
+    if(!users || users.length==0){
 	  User.create({
 		    provider: 'local',
 		    role: 'guest',
 		    name: 'Guest',
 		    email: 'guest@guest.com',
 		    password: 'guest'
-		  }, {
+		  },{
+		    provider: 'local',
+		    role: 'test',
+		    name: 'Test User',
+		    email: 'test@test.com',
+		    password: 'test'
+		  },
+		  {
 		    provider: 'local',
 		    role: 'admin',
 		    name: 'Everyword Administrator',

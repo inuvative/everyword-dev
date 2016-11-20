@@ -201,6 +201,24 @@ exports.removeMembers = function(req, res) {
   });
 };
 
+exports.getFeedCount = function(req, res){
+	  if(req.params.id !=='0'){
+		  var owner = req.params.id;  
+		  Group.findById(req.params.id).populate('creator members').exec(function(err, group) {
+			  var feed=[];
+			  var users = group.members.concat(group.creator).filter(Boolean).map(function(u){return u._id;});		  
+			  FeedEntry.count({user : {$in : users}}, function(err,count){
+				 return res.status(200).json({'count': count}); 
+			  });
+		  });		  
+	  } else {
+		  FeedEntry.count({}, function(err,count){
+			  return res.status(200).json({'count': count}); 
+		  });
+		  
+	  }
+}
+
 exports.getFeed= function(req, res){
 	  var owner = req.params.id;  
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();
@@ -222,15 +240,19 @@ exports.getFeed= function(req, res){
 						  });
 					  }
 					  else if(e.media) {
-						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err,med){
-							  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
-							  next();
+						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+							  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+								  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
+								  next();
+							  });
 						  });
 					  }
 					  else if(e.reference){
-						  Reference.populate(e.reference,{path: 'user', model: 'User'}, function(err,ref){
-							 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
-							 next();
+						  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+							  Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+								  feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
+								  next();
+							  });
 						  });
 					  } else {
 						  next();						  
