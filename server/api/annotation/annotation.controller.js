@@ -36,10 +36,31 @@ exports.show = function(req, res) {
 
 // Creates a new annotation in the DB.
 exports.create = function(req, res) {
-  Annotation.create(req.body, function(err, annotation) {
-    if(err) { return handleError(res, err); }
-    return res.status(201).json(annotation);
-  });
+  Annotation.findOne({ 'book': req.body.book, 'chapter': Number(req.body.chapter), 'verse' : Number(req.body.verse)},
+	function (err, annotation) {
+	    if(err) { return handleError(res, err); }    
+	    if(!annotation) { 
+		    Annotation.create(req.body, function(err, annotation) {
+		        if(err) { return handleError(res, err); }
+		        return res.status(201).json(annotation);
+		      });
+	    } else {
+	        var objectIds = function(id) { return mongooseTypes.ObjectId(id); } 
+	        if(req.body.comments){
+	        	annotation.comments = updateAnnotation(annotation.comments,_.map(req.body.comments,objectIds),req.body.remove);
+	        }
+	        if(req.body.references){
+	        	annotation.references = updateAnnotation(annotation.references, _.map(req.body.references,objectIds), req.body.remove);
+	        }
+	        if(req.body.media) {
+	        	annotation.media = updateAnnotation(annotation.media,_.map(req.body.media,objectIds),req.body.remove);
+	        }
+	        annotation.save(function (err) {
+	          if (err) { return handleError(res, err); }
+	          return res.status(200).json(annotation);
+	        });	    	
+	    }
+	});
 };
 
 // Updates an existing annotation in the DB.
@@ -53,7 +74,7 @@ exports.update = function(req, res) {
     	annotation.comments = updateAnnotation(annotation.comments,_.map(req.body.comments,objectIds),req.body.remove);
     }
     if(req.body.references){
-    	annotation.references = updateAnnotaion(annotation.references, _.map(req.body.references,objectIds), req.body.remove);
+    	annotation.references = updateAnnotation(annotation.references, _.map(req.body.references,objectIds), req.body.remove);
     }
     if(req.body.media) {
     	annotation.media = updateAnnotation(annotation.media,_.map(req.body.media,objectIds),req.body.remove);

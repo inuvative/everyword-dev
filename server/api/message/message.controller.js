@@ -28,7 +28,8 @@ var transporter = nodemailer.createTransport(smtpConfig);
 
 // Get list of messages
 exports.index = function(req, res) {
-  Message.find(function (err, messages) {
+  var q = req.query.user !== undefined ? { to: req.query.user}: {};
+  Message.find(q).populate('to from').exec(function (err, messages) {
     if(err) { return handleError(res, err); }
     return res.status(200).json(messages);
   });

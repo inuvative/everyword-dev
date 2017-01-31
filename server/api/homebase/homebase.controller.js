@@ -94,7 +94,7 @@ exports.getFeed = function(req, res){
 		  var feed = [];
   	      var following = homebase.following;
 		  var users = _.uniq(following.concat(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);})));
-		  //users.push(owner);
+		  users = _.union([owner],users);
 		  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
 		  	.populate('user comment media reference').exec(function(err,entries){
 				  each(entries, function(e ,next) {
