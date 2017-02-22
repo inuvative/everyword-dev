@@ -193,7 +193,7 @@ exports.getFollowing = function(req, res) {
 	    			            "_id": "$user", 
 	    			            "count": { "$sum": 1 }
 	    			        }},
-	    			        {$match : { "_id": { $ne : null}}},
+	    			        {"$match" : { "_id": { "$ne" : null}}},
 	    			        // Sorting pipeline
 	    			        { "$sort": { "count": -1 } },
 	    			        // Optionally limit results
