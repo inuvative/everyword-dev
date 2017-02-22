@@ -185,12 +185,38 @@ exports.getFollowing = function(req, res) {
 	    if(err) { return handleError(res, err); }
 	    if(!homebase) return res.send(null);
 	    User.findById(req.params.id, function(err,user){
-	    	if(user.role==='guest' && homebase.following.length===0){
-	    		User.find({role:'user'}).limit(20).exec(function(err,users){
-	    			homebase.following = users;
-	    			homebase.save();
-	    			return res.json(homebase.following);
-	    		})
+	    	if(user.role==='guest' || homebase.following.length==0){
+	    		Comment.aggregate(
+	    			    [
+	    			        // Grouping pipeline
+	    			        { "$group": { 
+	    			            "_id": '$user', 
+	    			            "count": { "$sum": 1 }
+	    			        }},
+	    			        // Sorting pipeline
+	    			        { "$sort": { "count": -1 } },
+	    			        // Optionally limit results
+	    			        { "$limit": 20 }
+	    			    ],
+	    			    function(err,result) {
+	    			       if(result){
+	    			    	   var following = _.filter(result,function(u){
+	    			    		   return !u._id.equals(user.id)
+	    			    		   });
+		    			       User.find({_id:{ $in : following }}, function(err,users){
+		    		    			homebase.following = users;
+		    		    			homebase.save();
+		    		    			return res.json(homebase.following);
+		    		    		})
+		    			       // Result is an array of documents	    			    	   
+	    			       }
+	    			    }
+	    			);
+//	    		User.find({role:'user'}).limit(20).exec(function(err,users){
+//	    			homebase.following = users;
+//	    			homebase.save();
+//	    			return res.json(homebase.following);
+//	    		})
 	    	} else {
 			    if(!all && homebase.following.length>20){
 			    	return res.json(homebase.following.slice(0,20));
