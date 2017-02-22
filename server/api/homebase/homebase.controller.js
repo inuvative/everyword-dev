@@ -190,9 +190,10 @@ exports.getFollowing = function(req, res) {
 	    			    [
 	    			        // Grouping pipeline
 	    			        { "$group": { 
-	    			            "_id": '$user', 
+	    			            "_id": "$user", 
 	    			            "count": { "$sum": 1 }
 	    			        }},
+	    			        {$match : { "_id": { $ne : null}}},
 	    			        // Sorting pipeline
 	    			        { "$sort": { "count": -1 } },
 	    			        // Optionally limit results
@@ -201,7 +202,7 @@ exports.getFollowing = function(req, res) {
 	    			    function(err,result) {
 	    			       if(result){
 	    			    	   var following = _.filter(result,function(u){
-	    			    		   return !u._id.equals(user.id)
+	    			    		   return u && u._id && !u._id.equals(user.id)
 	    			    		   });
 		    			       User.find({_id:{ $in : following }}, function(err,users){
 		    		    			homebase.following = users;
