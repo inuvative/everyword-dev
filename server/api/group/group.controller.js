@@ -4,6 +4,8 @@ var _ = require('lodash');
 var each = require('async-each-series');
 var mongooseTypes = require('mongoose').Types;
 var Group = require('./group.model');
+var GroupInvite = require('./group.invite');
+var GroupRequest = require('./group.request');
 var Homebase = require('../homebase/homebase.model');
 var Feed = require('../homebase/feed.model');
 var FeedEntry = require('../homebase/feed.entry');
@@ -26,7 +28,7 @@ exports.show = function(req, res) {
   Group.findById(req.params.id).populate("creator").exec(function (err, group) {
     if(err) { return handleError(res, err); }
     if(!group) { return res.status(404).send('Not Found'); }   
-	return res.json({'name': group.name, 'creator': group.creator, 'memberIds': group.members.concat(group.creator._id)});
+	return res.json(group);
 //    return res.json(group);
   });
 };
@@ -91,7 +93,7 @@ exports.destroy = function(req, res) {
 
 //Get a single group
 exports.showMembers = function(req, res) {
-  Group.findById(req.params.id).populate('members').exec(function (err, group) {
+  Group.findById(req.params.id).populate('members creator').exec(function (err, group) {
     if(err) { return handleError(res, err); }
     if(!group) { return res.status(404).send('Not Found'); }
     return res.json(group.members);
@@ -113,6 +115,38 @@ exports.showRequests = function(req, res) {
     if(err) { return handleError(res, err); }
     if(!group) { return res.status(404).send('Not Found'); }
     return res.json(group.requests);
+  });
+};
+
+exports.createRequest = function(req, res) {
+	  GroupRequest.create(req.body, function(err, request) {
+	    if(err) { return handleError(res, err); }
+	    return res.status(201).json(request);
+	  });
+};
+
+//Get a single group
+exports.findRequest = function(req, res) {
+  GroupRequest.findOne({ from: req.body.from, group : req.body.group}).populate('message').exec(function (err, request) {
+	    if(err) { return handleError(res, err); }
+	    if(!request) { return res.send(null); }
+	    return res.json(request);
+  });
+};
+
+exports.createInvite = function(req, res) {
+	  GroupInvite.create(req.body, function(err, invite) {
+	    if(err) { return handleError(res, err); }
+	    return res.status(201).json(invite);
+	  });
+};
+
+//Get a single group
+exports.findInvite = function(req, res) {
+  GroupInvite.findOne({$or : [{to : req.body.to},{email : req.body.email}], group : req.body.group}).populate('message').exec(function (err, invite) {
+	    if(err) { return handleError(res, err); }
+	    if(!invite) { return res.send(null); }
+	    return res.json(invite);
   });
 };
 
@@ -220,7 +254,7 @@ exports.getFeedCount = function(req, res){
 }
 
 exports.getFeed= function(req, res){
-	  var owner = req.params.id;  
+	  var groupId =  mongooseTypes.ObjectId(req.params.id);  
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();

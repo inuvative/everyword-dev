@@ -12,6 +12,7 @@ var MessageSchema = new Schema({
 	    type: Schema.ObjectId,
 	    ref: 'User'
 	  },
+	email: String,
 	subject: String,
 	body : String,
 	hasAction: Boolean,

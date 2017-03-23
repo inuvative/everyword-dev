@@ -136,16 +136,23 @@ exports.sendEmail = function(req, res) {
         subject: subject, // Subject line 
         html: '<p>'+ messageBody +'</p>' // plaintext body 
     };
-     
     // send mail with defined transport object 
     transporter.sendMail(mailOptions, function(error, info){
         if(error){
             return console.log(error);
         }
         console.log('Message sent: ' + info.response);
+        if(req.body.persist){
+            var message=new Message({'from': from, 'subject':subject,'body':messageBody, 'email':to});
+            message.save(function(err,message){
+            	 Message.populate(message, {path: 'from', model: 'User'}, function(err,msg) {
+         	        return res.status(201).json(msg);    	    	
+         	    });
+            });        	
+        }
     });    
     transporter.close();
-    return res.status(201).json("Success");
+//    return res.status(201).json("Success");
 };
 
 function handleError(res, err) {

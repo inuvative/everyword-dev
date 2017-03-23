@@ -18,7 +18,9 @@ exports.register = function(socket) {
 }
 
 function onSave(socket, msg, cb) {
-  socket.emit('message'+msg.to._id+':save', msg);
+	if(msg.to && msg.to._id){
+		socket.emit('message'+msg.to._id+':save', msg);		
+	}
 }
 
 function onRemove(socket, doc, cb) {

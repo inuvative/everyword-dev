@@ -18,5 +18,9 @@ router.put('/:id/members', controller.updateMembers);
 router.put('/:id/members/delete', controller.removeMembers);
 router.get('/:id/invited', controller.showInvited);
 router.get('/:id/requests', controller.showRequests);
+router.post('/findInvite', controller.findInvite);
+router.post('/findRequest',controller.findRequest);
+router.post('/invite', controller.createInvite);
+router.post('/request',controller.createRequest);
 
 module.exports = router;

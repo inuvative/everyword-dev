@@ -18,9 +18,10 @@ exports.index = function(req, res) {
   var book = req.params.book;
   var chapter = req.params.chapter;
   var chapters = getSurroundingChapters(book,chapter);
-  
+  var tt = javascripture.api.reference.getTestament(book);
+  tt = (tt==='hebrew') ? 'ot' : 'nt';
   bible.get(book+' '+chapter, 'kjv').then(function (verse) {
-     return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text});
+     return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text, 'testament': tt});
   }, function(reason) {
       return handleError(res, reason);
   });
