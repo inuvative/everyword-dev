@@ -134,7 +134,7 @@ exports.sendEmail = function(req, res) {
 //        sender: req.body.from,
         to: to, // list of receivers 
         subject: subject, // Subject line 
-        html: '<p>'+ messageBody +'</p>' // plaintext body 
+        html: '<div>'+ messageBody +'</div>' // plaintext body 
     };
     // send mail with defined transport object 
     transporter.sendMail(mailOptions, function(error, info){
@@ -149,10 +149,11 @@ exports.sendEmail = function(req, res) {
          	        return res.status(201).json(msg);    	    	
          	    });
             });        	
+        } else {
+            return res.status(201).json("Success");        	
         }
     });    
     transporter.close();
-//    return res.status(201).json("Success");
 };
 
 function handleError(res, err) {
