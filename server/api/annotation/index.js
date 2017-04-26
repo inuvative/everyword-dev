@@ -18,5 +18,5 @@ router.post('/:book/:chapter/:verse/footnotes', controller.findFootnotes);
 router.get('/:book/:chapter/:verse/references', controller.findReferences);
 router.get('/:book/:chapter/:verse/media', controller.findMedia);
 router.get('/:id/find',controller.findAnnotation);
-
+router.post('/newest',controller.getNewestAnnotation)
 module.exports = router;

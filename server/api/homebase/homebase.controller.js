@@ -15,6 +15,7 @@ var FeedEntry = require('../homebase/feed.entry');
 var Like = require('../comment/like.model');
 var Remark = require('../remark/remark.model');
 
+
 // Get list of homebases
 exports.index = function(req, res) {
   Homebase.find(function (err, homebases) {
@@ -85,7 +86,7 @@ exports.destroy = function(req, res) {
 
 exports.getFeed = function(req, res){
 	  var owner = req.params.id;  
-	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();
+	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();	
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();
 	  var dateQuery = req.query.after === undefined ? {$lte:dt} : {$lt : dt};

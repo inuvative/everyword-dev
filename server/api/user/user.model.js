@@ -19,7 +19,8 @@ var UserSchema = new Schema({
   google: {},
   github: {},
   resetToken: String,
-  resetExpiry: Date
+  resetExpiry: Date,
+  created: { type: Date, default: Date.now()}
 });
 
 /**
