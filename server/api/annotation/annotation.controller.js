@@ -261,20 +261,23 @@ exports.getNewestAnnotation = function(req,res) {
 		  		   .populate('comment media reference')
 		  		   .sort({"date":-1})
 		  		   .limit(1).exec(function(err,newest){
+		  			   if(err){
+		  				   return handleError(res,err);
+		  			   }
 		  			   if(newest.comment){
 		  				   Comment.populate(e.comment, [{path: 'user', model: 'User'}],function(err,comment){
 		  					  return res.status(200).json(comment); 
 		  				   });
-		  			   }
-		  			   if(newest.media){
+		  			   }else if(newest.media){
 		  				   Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'}],function(err,media){
 		  					   return res.status(200).json(media);
 		  				   });
-		  			   }
-		  			   if(newest.reference){
+		  			   } else if(newest.reference){
 		  				   Reference.populate(e.media,[{path: 'user', model: 'User'}],function(err,reference){
 		  					   return res.status(200).json(reference);
 		  				   });
+		  			   } else {
+		  				   return res.send(null);
 		  			   }
 		  		   });
 	});
