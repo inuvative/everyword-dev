@@ -113,10 +113,10 @@ exports.sendEmail = function(req, res) {
     var subject = req.body.subject;
     var messageBody = req.body.message || '';
     if(req.body.group) {
-    	messageBody = from.name + ' has invited you to join their group<br/>'+ req.body.group;
-    	messageBody += ' on '+ req.body.url +'.';
+    	messageBody = 'Hi '+ req.body.to +'!<br/>'+ from.name + ' has invited you to join their study group, "<strong>'+ req.body.group+'</strong>",';
+    	messageBody += ' at '+ req.body.url +'.<br/>';
     	if(req.body.message) {
-    		messageBody += ' With the following message:<br/> '+req.body.message;
+    		messageBody += 'Here\'s what they said:<br/>'+req.body.message;
     	}
     	messageBody += '<br/><a href="'+req.body.link+'">Join</a>'
     }
