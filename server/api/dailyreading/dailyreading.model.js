@@ -9,6 +9,7 @@ var DailyReadingSchema = new Schema({
   book: String,
   chapter: Number,
   verses: String,
+  group: {type: Schema.ObjectId, ref: 'Group'}
 });
 
 module.exports = mongoose.model('DailyReading', DailyReadingSchema);

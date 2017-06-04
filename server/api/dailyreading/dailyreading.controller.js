@@ -5,7 +5,7 @@ var DailyReading = require('./dailyreading.model');
 
 // Get list of dailyreadings
 exports.index = function(req, res) {
-  DailyReading.find(function (err, dailyreadings) {
+  DailyReading.find({'group': {$exists:false}},function (err, dailyreadings) {
     if(err) { return handleError(res, err); }
     return res.status(200).json(dailyreadings);
   });
@@ -19,6 +19,14 @@ exports.show = function(req, res) {
     return res.json(dailyreading);
   });
 };
+
+exports.showGroupReading = function(req, res) {
+	  DailyReading.find({'group': req.params.groupid}, function (err, dailyreadings) {
+	    if(err) { return handleError(res, err); }
+	    if(!dailyreadings) { return res.status(404).send('Not Found'); }
+	    return res.json(dailyreadings);
+	  });
+	};
 
 // Creates a new dailyreading in the DB.
 exports.create = function(req, res) {

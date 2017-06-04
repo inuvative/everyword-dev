@@ -250,7 +250,7 @@ exports.getNewestAnnotation = function(req,res) {
 		  var minCount = result && result[0] ? result[0].count : 0;
 		  var least=[];
 		  var i=0;
-		  while(i<10){//result.length && result[i].count <= minCount){
+		  while(i<result.length && i<20){//result.length && result[i].count <= minCount){
 			  least.push(mongooseTypes.ObjectId(result[i]._id));		
 			  i++;
 		  }
