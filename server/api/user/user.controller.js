@@ -4,20 +4,37 @@ var User = require('./user.model');
 var passport = require('passport');
 var config = require('../../config/environment');
 var jwt = require('jsonwebtoken');
+var mongooseTypes = require('mongoose').Types;
+var _ = require('lodash');
 
 var validationError = function(res, err) {
   return res.status(422).json(err);
 };
+
+//var testUsers =[];
+//for(var i=1;i<=500;i++){
+//	var testUser = new User({'name' : 'TestUser000'+i, 'email': 'testUser000'+i+'@test.com', 'password': 'test', 'provider':'local'});
+//	testUser.save();
+//}
 
 /**
  * Get list of users
  * restriction: 'admin'
  */
 exports.index = function(req, res) {
-  User.find({}, '-salt -hashedPassword', function (err, users) {
-    if(err) return res.status(500).send(err);
-    res.status(200).json(users);
-  });
+	  var query = req.query.lastId ? {"_id":{$gt: mongooseTypes.ObjectId(req.query.lastId)}} : {};
+	  var limit = req.query.limit || 0;
+	  if(req.query.name){
+		  query.name= {$regex: req.query.name, $options: 'i' };
+	  }
+	  User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).exec(function (err, users) {
+	    if(err) return res.status(500).send(err);
+	    if(!users){
+	    	res.status(200).json([]);
+	    } else {
+		    res.status(200).json(users);	    	
+	    }
+	  });
 };
 
 /**
