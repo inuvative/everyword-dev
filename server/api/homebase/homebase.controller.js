@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var each = require('async-each-series');
 var mongoose = require('mongoose');
+var mongooseTypes = mongoose.Types;
 
 var Homebase = require('./homebase.model');
 var Group = require('../group/group.model');
@@ -178,11 +179,30 @@ exports.getGroups = function(req, res) {
 		})	    
 	  });
 };
+var getCounts = function(user,res){
+	Homebase.findOne({ login: user._id}, function (err, homebase) {
+		   var counts={};
+		   if(homebase){		
+			   counts.following = homebase.following? homebase.following.length : 0;
+			   counts.followers = homebase.followers? homebase.followers.length : 0;
+			   FeedEntry.count({ user: user._id}, function (err, entries) {
+				     counts.comments=entries;   
+					  Like.count({ user: user._id},function (err, likes) {
+						  counts.likes=likes;
+					      res(counts);
+					  });
+			  });		
+		   } else {
+			   res({'following':0,'followers':0,'comments':0,'likes':0})
+		   }
+	});
+}
 
 exports.getFollowing = function(req, res) {
     var all=req.query.all=="true" ? true : false;
-
-	Homebase.findOne({ login: req.params.id}).populate('following').exec(function (err, homebase) {
+    var lastId=req.query.lastid;
+    var name=req.query.name;
+	Homebase.findOne({ login: req.params.id}).exec(function (err, homebase) {
 	    if(err) { return handleError(res, err); }
 	    if(!homebase) return res.send(null);
 	    User.findById(req.params.id, function(err,user){
@@ -214,16 +234,28 @@ exports.getFollowing = function(req, res) {
 	    			       }
 	    			    }
 	    			);
-//	    		User.find({role:'user'}).limit(20).exec(function(err,users){
-//	    			homebase.following = users;
-//	    			homebase.save();
-//	    			return res.json(homebase.following);
-//	    		})
 	    	} else {
-			    if(!all && homebase.following.length>20){
-			    	return res.json(homebase.following.slice(0,20));
-			    }
-			    return res.json(homebase.following);	    		
+	    		var following = homebase.following;
+	    		var query = lastId ? {_id:{ $in: following, $gt: mongooseTypes.ObjectId(req.query.lastId)}} : {_id: { $in: following}};
+	    		if(name){
+	    			query.name = {$regex: name, $options: 'i' };
+	    		}
+	    		var limit = !all && following.length>20 ? 20 : 0;	    		
+	    		User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean().exec(function (err, users) {
+	    		    if(err) return res.status(500).send(err);
+	    		    if(!users){
+	    		    	return res.status(200).json([]);
+	    		    } else {
+	    		    	each(users, function(u ,next) {
+	    		    		getCounts(u,function(counts){
+	    		    			Object.assign(u,counts);
+	    		    		    next();	    	
+	    		    		});
+	    				  },function(err){
+	    					  return res.status(200).json(users);
+	    				  });
+	    		    }	    			
+	    		});
 	    	}
 	    })
 	  });

@@ -6,6 +6,11 @@ var config = require('../../config/environment');
 var jwt = require('jsonwebtoken');
 var mongooseTypes = require('mongoose').Types;
 var _ = require('lodash');
+var each = require('async-each-series');
+
+var FeedEntry = require('../homebase/feed.entry');
+var Like = require('../comment/like.model');
+var Homebase = require('../homebase/homebase.model');
 
 var validationError = function(res, err) {
   return res.status(422).json(err);
@@ -17,6 +22,24 @@ var validationError = function(res, err) {
 //	testUser.save();
 //}
 
+var getCounts = function(user,res){
+	Homebase.findOne({ login: user._id}, function (err, homebase) {
+		   var counts={};
+		   if(homebase){		
+			   counts.following = homebase.following? homebase.following.length : 0;
+			   counts.followers = homebase.followers? homebase.followers.length : 0;
+			   FeedEntry.count({ user: user._id}, function (err, entries) {
+				     counts.comments=entries;   
+					  Like.count({ user: user._id},function (err, likes) {
+						  counts.likes=likes;
+					      res(counts);
+					  });
+			  });		
+		   } else {
+			   res({'following':0,'followers':0,'comments':0,'likes':0})
+		   }
+	});
+}
 /**
  * Get list of users
  * restriction: 'admin'
@@ -27,12 +50,19 @@ exports.index = function(req, res) {
 	  if(req.query.name){
 		  query.name= {$regex: req.query.name, $options: 'i' };
 	  }
-	  User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).exec(function (err, users) {
+	  User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean().exec(function (err, users) {
 	    if(err) return res.status(500).send(err);
 	    if(!users){
-	    	res.status(200).json([]);
+	    	return res.status(200).json([]);
 	    } else {
-		    res.status(200).json(users);	    	
+	    	each(users, function(u ,next) {
+	    		getCounts(u,function(counts){
+	    			Object.assign(u,counts);
+	    		    next();	    	
+	    		});
+			  },function(err){
+				  return res.status(200).json(users);
+			  });
 	    }
 	  });
 };
@@ -55,7 +85,7 @@ exports.create = function (req, res, next) {
 		  newUser.save(function(err, user) {
 		    if (err) return validationError(res, err);
 		    var token = jwt.sign({_id: user._id }, config.secrets.session, { expiresInMinutes: 60*5 });
-		    res.json({ user: user, token: token });
+		    return res.json({ user: user, token: token });
 		  });		
 	});
 };
@@ -69,7 +99,7 @@ exports.show = function (req, res, next) {
   User.findById(userId, function (err, user) {
     if (err) return next(err);
     if (!user) return res.send(null);
-    res.json(user.profile);
+    return res.json(user.profile);
   });
 };
 
@@ -115,7 +145,7 @@ exports.me = function(req, res, next) {
   }, '-salt -hashedPassword', function(err, user) { // don't ever give out the password or salt
     if (err) return next(err);
     if (!user) return res.status(401).send('Unauthorized');
-    res.json(user);
+    return res.json(user);
   });
 };
 
