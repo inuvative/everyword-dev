@@ -57,7 +57,7 @@ exports.index = function(req, res) {
 	    } else {
 	    	each(users, function(u ,next) {
 	    		getCounts(u,function(counts){
-	    			Object.assign(u,counts);
+	    			_.assign(u,counts);
 	    		    next();	    	
 	    		});
 			  },function(err){
