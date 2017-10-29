@@ -47,9 +47,15 @@ function getSurroundingChapters(book,chapter) {
 	reference.rightVersion='kjv';
 	reference.book = book;
 	reference.chapter = chapter;
-	var chapters = javascripture.api.reference.getThreeChapters(reference).chapters;
-	var prev = (chapters.length===3)? {'book': chapters[0].book, 'chapter':chapters[0].chapter} : undefined;
-	var next = (chapters.length>=2) ? {'book': chapters[chapters.length-1].book, 'chapter': chapters[chapters.length-1].chapter} : undefined;
+//	var chapters = javascripture.api.reference.getThreeChapters(reference).chapters;
+	var prev = javascripture.api.reference.getOffsetChapter(reference,-1);
+	var next = javascripture.api.reference.getOffsetChapter(reference,1);
+	if(!prev.book){
+		prev=undefined;
+	}
+	if(!next.book){
+		next=undefined;
+	}
 	return {'prev': prev, 'next': next};
 }
 

@@ -29,9 +29,10 @@ var search = function(javascripture) {
 		return self.results.references;
 	},
 	addSnippets: function() {
+		var kjv = javascripture.data.kjv.text();
 		this.results.references.forEach( function( reference ) {
-			if( javascripture.data.kjv[ reference.book ][ reference.chapter - 1 ] && javascripture.data.kjv[ reference.book ][ reference.chapter - 1 ][ reference.verse - 1 ] ) {
-				reference.snippet = javascripture.data.kjv[ reference.book ][ reference.chapter - 1 ][ reference.verse - 1 ];
+			if( kjv[ reference.book ][ reference.chapter - 1 ] && kjv[ reference.book ][ reference.chapter - 1 ][ reference.verse - 1 ] ) {
+				reference.snippet = kjv[ reference.book ][ reference.chapter - 1 ][ reference.verse - 1 ];
 			}
 		} );
 	},
@@ -89,7 +90,7 @@ var search = function(javascripture) {
 			parameters.language = self.inferLanguage( parameters );
 		}
 
-		var dataSource = this.language[parameters.language]; //work out what language to search in
+		var dataSource = this.language[parameters.language].text(); //work out what language to search in
 		self.results.references = [];
 		self.resetMatches();
 

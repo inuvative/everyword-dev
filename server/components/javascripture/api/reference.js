@@ -52,7 +52,8 @@ var reference = function(javascripture) {
 		return result;
 	},
 	getTestament: function( book ) {
-		if( javascripture.data.hebrew[ book ] ) {
+		var hebrew = javascripture.data.hebrew.text(); 
+		if( hebrew[ book ] ) {
 			return 'hebrew';
 		} else {
 			return 'greek';
@@ -73,11 +74,13 @@ var reference = function(javascripture) {
 			result.verse = 0;
 		}
 
-		if ( javascripture.data[ reference.rightData ] && javascripture.data[ reference.rightData ][ book ] && javascripture.data[ reference.rightData ][ book ][ chapterInArray ] ) {
-			result.right = javascripture.data[ reference.rightData ][ book ][ chapterInArray ];
-
-			if( javascripture.data[ reference.leftData ][ book ] && javascripture.data[ testament ][ book ][ chapterInArray ] ) {
-				result.left = javascripture.data[ reference.leftData ][ book ][ chapterInArray ];
+		var right = javascripture.data[ reference.rightData ] ? javascripture.data[ reference.rightData ].text() : null;
+		if ( right && right[ book ] && right[ book ][ chapterInArray ] ) {
+			result.right = right[ book ][ chapterInArray ];
+			var left = javascripture.data[ reference.leftData ] ? javascripture.data[ reference.leftData ].text() : null;
+			
+			if( left && left[ book ] && left[ book ][ chapterInArray ] ) {
+				result.left = left[ book ][ chapterInArray ];
 			}
 		}
 		return result;
@@ -92,7 +95,8 @@ var reference = function(javascripture) {
 			offsetChapterNumber = parseInt(chapter, 10) + offset,
 			offsetNumberJavascript = offsetChapterNumber - 1,
 			offsetBook;
-		if ( javascripture.data[reference.rightData][book] && javascripture.data[reference.rightData][book][offsetNumberJavascript] !== undefined) {
+		var right =javascripture.data[reference.rightData] ? javascripture.data[reference.rightData].text() : null;
+		if ( right && right[book] && right[book][offsetNumberJavascript] !== undefined) {
 			offsetChapter.book = book;
 			offsetChapter.chapter = offsetChapterNumber;
 		} else {

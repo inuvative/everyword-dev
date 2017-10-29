@@ -56,19 +56,33 @@ exports.create = function(req, res) {
 // Updates an existing homebase in the DB.
 exports.update = function(req, res) {
   if(req.body._id) { delete req.body._id; }
-  Homebase.findOne({ $or : [{_id : req.params.id},{login : req.params.id}]}).populate('following groups tags messages').exec(function (err, homebase) {
+  Homebase.findOne({ $or : [{_id : req.params.id},{login : req.params.id}]}).populate('groups messages').exec(function (err, homebase) {
     if (err) { return handleError(res, err); }
     if(!homebase) { return res.status(404).send('Not Found'); }
     var groups = _.filter(homebase.groups,['creator',homebase.login]);
     var groupsMembers = _.flatMap(groups,'members').map(function(m){return m.id;});
-    var following = _.map(homebase.following, 'id');
+    //var following = _.map(homebase.following, 'id');
     groupsMembers = _.filter(groupsMembers,function(g){return g!==homebase.login});
     if(req.body.following || req.body.tags){
-	    _.extend(homebase, req.body);
+	    _.assignWith(homebase, req.body, function(oldVal,newVal){
+	    	if(_.isArray(oldVal)) {
+	    		return oldVal.concat(newVal);
+	    	} else {
+	    		return newVal;
+	    	}});
 	    homebase.save(function (err) {
 	      if (err) { return handleError(res, err); }
 	      return res.status(200).json(homebase);
 	    });    		
+    } else if(req.body.unfollow){
+    	var i = homebase.following.indexOf(req.body.unfollow);
+    	if(i>-1){
+    		homebase.following.splice(i,1);
+    		homebase.save(function (err) {
+    		      if (err) { return handleError(res, err); }
+    		      return res.status(200).json(homebase);
+    		});
+    	}
     }
   });
 };
@@ -94,67 +108,46 @@ exports.getFeed = function(req, res){
 	  
 	  Homebase.findOne({ login: owner}).populate('groups').exec(function (err, homebase) {
 		  var feed = [];
-  	      var following = homebase.following;
-		  var users = _.uniq(following.concat(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);})));
-		  users = _.union([owner],users);
-		  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
-		  	.populate('user comment media reference').exec(function(err,entries){
-				  each(entries, function(e ,next) {
-					  if(e.comment){
-						  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
-							  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
-								  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment, 'likes' : comment.likes});
-								  next();								  
-							  });
-						  });
-					  }
-					  else if(e.media) {
-						  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
-							  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
-								  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
-								  next();
-							  });
-						  });
-					  }
-					  else if(e.reference){
-						  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
-							 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
-								 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
-								 next();
-							 });
-						  });
-					  } else {
-						  next();						  
-					  }
-				  },function(err){
-					  return res.json(feed);
-				  });
-		  });
-//		  Comment.find({user : { $in : users}, date: dateQuery}).sort('-date').limit(10).populate('user group').exec(function(err,comments){
-//			  if(comments){
-//				  for(var c in comments){
-//					  var comment = comments[c];
-//					  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
-//				  }			  
-//			  }
-//			  Media.find({user: {$in: users}, date: dateQuery}).sort('-date').limit(10).populate('user image').exec(function(err,media){
-//				 if(media){
-//					 for(var m in media){
-//						 var med = media[m];
-//						 feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
-//					 }				 
-//				 }
-//				 Reference.find({user: { $in: users}, date: dateQuery}).limit(10).sort('-date').populate('user').exec(function(err,references){
-//					if(references){				
-//						for(var r in references){
-//							var ref = references[r];
-//							feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
-//						}					
-//					}
-//					return res.json(feed);
-//				 });
-//			  });
-//		  });
+		  if(err||!homebase){
+			  return res.json(feed);
+		  }
+  	      followEverywordUser(homebase, function(following) {
+  			  var users = _.uniq(following.concat(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);})));
+  			  users = _.union([owner],users);
+  			  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
+  			  	.populate('user comment media reference').exec(function(err,entries){
+  					  each(entries, function(e ,next) {
+  						  if(e.comment){
+  							  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+  								  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+  									  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment, 'likes' : comment.likes});
+  									  next();								  
+  								  });
+  							  });
+  						  }
+  						  else if(e.media) {
+  							  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+  								  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+  									  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
+  									  next();
+  								  });
+  							  });
+  						  }
+  						  else if(e.reference){
+  							  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+  								 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+  									 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
+  									 next();
+  								 });
+  							  });
+  						  } else {
+  							  next();						  
+  						  }
+  					  },function(err){
+  						  return res.json(feed);
+  					  });
+  			  });  	    	  
+  	      });
 	  });
 }
 
@@ -225,10 +218,13 @@ exports.getFollowing = function(req, res) {
 	    			    	   var following = _.filter(result,function(u){
 	    			    		   return u && u._id && !u._id.equals(user.id)
 	    			    		   });
-		    			       User.find({_id:{ $in : following }}, function(err,users){
+		    			       User.find({$or: [{_id:{ $in : following }},{email:'everywordbible@gmail.com'}]}, function(err,users){
 		    		    			homebase.following = users;
-		    		    			homebase.save();
-		    		    			return res.json(homebase.following);
+		    		    			homebase.save(function(err,hb){
+		    		    				Homebase.populate(hb, 'following', function(err,hb) {
+				    		    			return res.json(hb.following);		    		    					
+		    		    				});
+		    		    			});
 		    		    		})
 		    			       // Result is an array of documents	    			    	   
 	    			       }
@@ -236,7 +232,7 @@ exports.getFollowing = function(req, res) {
 	    			);
 	    	} else {
 	    		var following = homebase.following;
-	    		var query = lastId ? {_id:{ $in: following, $gt: mongooseTypes.ObjectId(req.query.lastId)}} : {_id: { $in: following}};
+	    		var query = lastId ? {_id:{ $in: following, $gt: mongooseTypes.ObjectId(lastId)}} : {_id: { $in: following}};
 	    		if(name){
 	    			query.name = {$regex: name, $options: 'i' };
 	    		}
@@ -306,6 +302,19 @@ exports.getLikes = function(req, res) {
 	  });
 };
 
+function followEverywordUser(homebase, cb){
+	User.findOne({email: 'everywordbible@gmail.com'}, function(err, user){
+		if(err || !user){
+			cb(homebase.following);
+		} else {
+			if(homebase.following.indexOf(user._id)===-1){
+				homebase.following.push(user._id);
+				homebase.save();
+			}
+			cb(homebase.following);
+		}
+	});
+}
 function handleError(res, err) {
   return res.status(500).send(err);
 }
