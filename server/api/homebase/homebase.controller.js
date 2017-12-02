@@ -222,7 +222,7 @@ exports.getFollowing = function(req, res) {
 		    		    			homebase.following = users;
 		    		    			homebase.save(function(err,hb){
 		    		    				Homebase.populate(hb, 'following', function(err,hb) {
-				    		    			return res.json(hb.following);		    		    					
+				    		    			return hb.following ? res.json(hb.following): [];		    		    					
 		    		    				});
 		    		    			});
 		    		    		})
