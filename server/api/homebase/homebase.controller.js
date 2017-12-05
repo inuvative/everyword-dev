@@ -144,6 +144,7 @@ exports.getFeed = function(req, res){
   							  next();						  
   						  }
   					  },function(err){
+  						  console.log("Sending feed to client")
   						  return res.json(feed);
   					  });
   			  });  	    	  
