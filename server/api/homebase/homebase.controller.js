@@ -104,7 +104,8 @@ exports.getFeed = function(req, res){
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();	
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();
-	  var dateQuery = req.query.after === undefined ? {$lte:dt} : {$lt : dt};
+	  var dateQuery = req.query.after === undefined ? {"$lte":dt} : {"$lt" : dt};
+	  var populate_fields = [{ path: 'user'}, {path: 'comment'}, {path: 'media'}, {path: 'reference'}];
 	  
 	  Homebase.findOne({ login: owner}).populate('groups').exec(function (err, homebase) {
 		  var feed = [];
@@ -114,39 +115,51 @@ exports.getFeed = function(req, res){
   	      followEverywordUser(homebase, function(following) {
   			  var users = _.uniq(following.concat(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);})));
   			  users = _.union([owner],users);
-  			  FeedEntry.find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
-  			  	.populate('user comment media reference').exec(function(err,entries){
-  					  each(entries, function(e ,next) {
-  						  if(e.comment){
-  							  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
-  								  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
-  									  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment, 'likes' : comment.likes});
-  									  next();								  
-  								  });
-  							  });
-  						  }
-  						  else if(e.media) {
-  							  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
-  								  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
-  									  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
-  									  next();
-  								  });
-  							  });
-  						  }
-  						  else if(e.reference){
-  							  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
-  								 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
-  									 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
-  									 next();
-  								 });
-  							  });
-  						  } else {
-  							  next();						  
-  						  }
-  					  },function(err){
-  						  console.log("Sending feed to client")
-  						  return res.json(feed);
-  					  });
+  			  FeedEntry.aggregate(
+	    			    [	    			        
+	    			        {"$match" : {"user": { "$in": users}}},
+	    			        { "$match": {"date": dateQuery}},
+	    			        // Sorting pipeline
+	    			        { "$sort": { "date": -1 } },
+	    			        // Optionally limit results
+	    			        { "$limit": 20 }
+	    			    ]
+  			  //find({user : {$in : users}, date: dateQuery}).sort('-date').limit(20)
+//  			  	.populate('user comment media reference').exec(
+  			  		,function(err,entries){
+	    			    FeedEntry.populate(entries, populate_fields, function(err, entries) {
+	    					  each(entries, function(e ,next) {
+	      						  if(e.comment){
+	      							  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+	      								  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+	      									  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment, 'likes' : comment.likes});
+	      									  next();								  
+	      								  });
+	      							  });
+	      						  }
+	      						  else if(e.media) {
+	      							  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+	      								  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+	      									  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
+	      									  next();
+	      								  });
+	      							  });
+	      						  }
+	      						  else if(e.reference){
+	      							  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+	      								 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+	      									 feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
+	      									 next();
+	      								 });
+	      							  });
+	      						  } else {
+	      							  next();						  
+	      						  }
+	      					  },function(err){
+	      						  console.log("Sending feed to client")
+	      						  return res.json(feed);
+	      					  });	    			    	
+	    			    });
   			  });  	    	  
   	      });
 	  });
