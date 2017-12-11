@@ -24,5 +24,5 @@ function onSave(socket, doc, cb) {
 }
 
 function onRemove(socket, doc, cb) {
-  socket.emit('media:remove', doc);
+  socket.emit('media'+doc.user+':remove', doc);
 }

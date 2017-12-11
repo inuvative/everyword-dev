@@ -18,7 +18,9 @@ router.get('/:id/groups', controller.getGroups);
 router.get('/:id/tags', controller.getTags);
 router.get('/:id/likes', controller.getLikes);
 router.get('/:id/messages', controller.getMessages);
-router.get('/:id/feed', controller.getFeed);
+router.get('/:id/feed', controller.getFeedNew);
+router.put('/:id/follow',controller.follow);
+router.put('/:id/unfollow',controller.unfollow);
 //router.put('/:id/feed', controller.updateFeed);
 
 module.exports = router;

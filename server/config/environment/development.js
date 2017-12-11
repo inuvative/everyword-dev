@@ -5,8 +5,8 @@
 module.exports = {
   // MongoDB connection options
   mongo: {
-//    uri: 'mongodb://localhost/angulardev-dev'
-      uri: 'mongodb://localhost/everyword'
+    uri: 'mongodb://localhost/angulardev-dev'
+//      uri: 'mongodb://localhost/everyword'
   },
 
   seedDB: true
