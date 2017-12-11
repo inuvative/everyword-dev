@@ -6,6 +6,8 @@ var mongoose = require('mongoose');
 var mongooseTypes = mongoose.Types;
 
 var Homebase = require('./homebase.model');
+var feedSocket = require('./homebase.socket');
+
 var Group = require('../group/group.model');
 var Comment = require('../comment/comment.model');
 var Media = require('../media/media.model');
@@ -117,6 +119,49 @@ exports.destroy = function(req, res) {
   });
 };
 
+exports.streamFeed = function(req,res){
+	  var owner = req.params.id;  
+	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();	
+	  var mm = dt.getMonth();
+	  var yyyy = dt.getFullYear();
+	  var dateQuery = req.query.after === undefined ? {"$lte":dt} : {"$lt" : dt};
+	  var dateCmp = req.query.after === undefined ? _.lte : _.lt;
+	  var feedentry_fields = [
+	                          {path: 'comment', model: 'Comment'},	                          
+	                          {path: 'media', model: 'Media'},	                          
+	                          {path: 'reference', model: 'Reference'},	                          
+	      ];
+	  Feed.findOne({"owner":owner},function(err,feed){
+		  FeedEntry.find({_id: {$in: feed.entries}, date : dateQuery}).populate('comment media reference').sort('-date').limit(20)
+		  .stream()
+		  .on('data',function(e){			      
+				  if(e.comment){
+					  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+						  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+							  res.json({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment, 'likes' : comment.likes});
+						  });
+					  });
+				  }
+				  else if(e.media) {
+					  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+						  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+							  res.json({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med, 'likes': med.likes});
+						  });
+					  });
+				  }
+				  else if(e.reference){
+					  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+						 Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+							 res.json({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'likes': ref.likes});
+						 });
+					  });
+				  }			  
+		  })
+		  .on('end',function(){
+			  res.end(null);
+		  })
+	  });
+}
 exports.getFeedNew = function(req, res){
 	  var owner = req.params.id;  
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();	
