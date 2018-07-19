@@ -112,7 +112,7 @@ function updateFeed(owner,user,follow) {
 
 exports.follow = function(req,res){
 	Follow.findOneAndUpdate({user: req.params.id},{$push: {'following' : req.body}},{upsert:true},function(err,follows){
-		if(err){return handleError(res,err);}
+		if(err){return handleError(res,err);}		
 		updateFeed(req.params.id,req.body.id,true)
 		User.findById(req.params.id, function(err,user){
 			var follower = {id: user._id, name: user.name};
@@ -214,22 +214,22 @@ exports.getFeedNew = function(req, res){
 	   		f=f[0];
 	   		var entries = _.orderBy(f.entries,'date','desc');
 	   		entries = _.slice(entries,0,20);
-	   		  var feed=[];
-	  		  each(entries, function(e,next) {
+	   		var feed=[];
+	   		each(entries, function(e,next) {
 	   		  Follow.findOne({user:e.user._id}).select('followers').exec(function(err,e2){
 	   			  e.followers=e2 && e2.followers ? e2.followers: [];
 	   			  var anno = e.comment||e.media||e.reference;
 	   			  Remark.find({$or:[{comment:anno},{media:anno},{reference:anno}]}).populate('user').exec(function(err,remarks){
 	   				  e.remarks=remarks||[];
-				  if(e.comment){
+					  if(e.comment){
 						  Group.findOne({_id: e.comment.group}, function(err, group){
 							  e.comment.group=group;
 							  //feed.push(e);
 							  feedSocket.sendToFeed(owner,e);
 							  next();								  
 						  });
-				  }
-				  else if(e.media) {
+					  }
+					  else if(e.media) {
 						  Image.findOne({_id: e.media.image}, function(err,image){
 							  e.media.image=image;
 //							  feed.push(e);
@@ -248,14 +248,14 @@ exports.getFeedNew = function(req, res){
 //						  feed.push(e);
 						  feedSocket.sendToFeed(owner,e);
 						  next();						  
-				  }
-						 });
-					  });
-			  },function(err){
-				  console.log("Sending feed to client")
+					  }	   				  
+	   			  });
+	   		  });	   			
+		  },function(err){
+			  console.log("Sending feed to client")
 			  return sendJSON(res,feed);
-			  });	   			
-	   		});		  
+		  });	   			
+   		});		  
 }
 
 exports.getFeed = function(req, res){
@@ -289,7 +289,7 @@ exports.getFeed = function(req, res){
   							  Group.findOne({_id: e.comment.group}, function(err, group){
   								  e.comment.group=group;
   								  feedEntries.push(e);
-  								  });
+  							  });
   						  }
   						  else if(e.media) {
   							  e.media.user=e.user;
@@ -297,25 +297,21 @@ exports.getFeed = function(req, res){
   								  e.media.image=image;
   								  e.media.remarks = remarks||[];
   								  feedEntries.push(e);
-  								  });
+  							  });
   						  } else if(e.reference){
   							  e.reference.user = e.user;
   							  e.reference.remarks = remarks||[];
   							  feedEntries.push(e);
-  						  }
-  								 });
-  							  });
+  						  }	   				  
+  		   			  });
+  		   		  });
   			  	})
   			  	.on('end',function(){
   			  		var result = _.orderBy(feedEntries,['date'],['desc']);
   			  		return sendJSON(res,result);
   			  	});  	    	  
 //  	      });
-  			  })
-  			  .on('end',function(){
-  				  feedSocket.sendDone(owner);
-  				  return sendResponse(res,'DONE');
-  			  });  	    	  
+	  });
 }
 
 exports.getComments = function(req, res) {
@@ -400,27 +396,27 @@ exports.getFollowing = function(req, res) {
 		    	  			  		follow.following=_.map(following, function(f){return {"id":f._id,"name":f.name}});
 		    	  			  		follow.save();
 		    	  			  		return sendJSON(res,following);
-		    		    				});
+		    	  			  	});  	    	  
 		    			       // Result is an array of documents	    			    	   
 	    			       }
 	    			    }
 	    			);
 	    	} else {
-	    		var following = follow.following;
+	    		var following = follow.following;	 
 	    		var results=[]
 	    		if(avail){
 	    			var ids = _.map(following,'id');
 		    		var query = lastId ? {_id:{ $nin: ids, $gt: mongooseTypes.ObjectId(lastId)}} : {_id: {$nin: ids}};
-	    		if(name){
-	    			query.name = {$regex: name, $options: 'i' };
-	    		}
+		    		if(name){
+		    			query.name = {$regex: name, $options: 'i' };
+		    		}
 	    			limit=20;
 		    		User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean()
 		    		.stream()
 		    		.on('data',function (user) {
 		    		    if(user){
     		    			results.push(user)
-	    		}
+		    		    }	    			
 		    		})
 		    		.on('end', function(){
 	  			  		results = _.sortBy(results,'_id');
@@ -429,16 +425,16 @@ exports.getFollowing = function(req, res) {
 	    		    			_.assign(u,counts);
 	    		    		    next();	    	
 	    		    		});
-	    				  },function(err){
+    				  },function(err){
     					  return sendJSON(res,results);		    			
-	    				  });
+    				  });
 		    		});
 	    		} else {
 	    			var results=[]
 		    		var limit = !all && following.length>20 ? 20 : following.length;
 		    		if(lastId){
 		    			following = _.filter(following,function(f){return _.gt(f.id,mongooseTypes.ObjectId(lastId))});
-	    		    }	    			
+		    		}
 		    		if(name){
 //		    			query.name = {$regex: name, $options: 'i' };
 		    			following = _.filter(following,function(f){return new RegExp(name, 'i').test(f.name)});
@@ -458,12 +454,12 @@ exports.getFollowing = function(req, res) {
 	    		    		getCounts(u,function(counts){
 	    		    			_.assign(u,counts);
 	    		    		    next();	    	
-	    		});
+	    		    		});
     				  },function(err){
 	  			  			return sendJSON(res,results);	    				
     				  });	    				
 	    			});
-	    	}
+	    		}
 	    	}
 	    })
 	  });
