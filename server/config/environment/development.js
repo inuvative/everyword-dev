@@ -10,5 +10,5 @@ module.exports = {
 //     uri: 'mongodb://admin:xiWb7emhKGA_@localhost:51021/everyword'
   },
 
-  seedDB: true
+  seedDB: false
 };
