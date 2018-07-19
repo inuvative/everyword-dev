@@ -5,6 +5,7 @@ var mongoose = require('mongoose'),
 
 var DevotionalSchema = new Schema({
   day: Number,
+  topic: String,
   book: String,
   chapter: Number,
   verses: String,

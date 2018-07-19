@@ -11,11 +11,11 @@ var Annotation = require('../annotation/annotation.model');
 var Devotional = require('./devotional.model');
 var Homebase = require('../homebase/homebase.model');
 var FeedEntry = require('../homebase/feed.entry');
-
+var Follow = require('../homebase/follow.model');
 // Get list of devotionals
 exports.index = function(req, res) {
   Devotional.find({}).limit(15).exec(function (err, devotionals) {
-    if(err) { return handleError(res, err); }
+    if(err) { return handleError(res, err); }    
     return res.status(200).json(devotionals);
   });
 };
@@ -39,42 +39,78 @@ exports.findByDay = function(req, res) {
 
 // Creates a new devotional in the DB.
 exports.create = function(req, res) {
-  Devotional.findOne({day: parseInt(req.body.day)}).populate('user comment media').exec(function(err , devotional) {
+  Devotional.findOne({day: parseInt(req.body.day)}).populate('user comment media').lean().exec(function(err , devotional) {
 	    if(err) { return handleError(res, err); }
 	    if(!devotional) { 
 	    	createDevotional(req.body,function(errors, devotionals){
 			    if(devotionals.length>0){
 				    var opts = [{path: 'user', model: 'User'},{path: 'comment', model: 'Comment'}, {path: 'media', model: 'Media'}];
 				    Devotional.populate(devotionals[0],opts, function(err, devotional){
-				    	if(devotional.comment){
-					    	Comment.populate(devotional.comment, {path: 'user', model: 'User'}, function(err, comm){
-							    devotional.comment = comm;
-					    		return res.status(201).json(devotional);			    				    		
-					    	})				    		
-				    	} else if(devotional.media){
-				    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
-				    			devotional.media = media;
-				    			return res.status(201).json(devotional);
-				    		})
-				    	}
+				    	Follow.findOne({user:devotional.user._id},function(err,u){
+				    		var followers = u && u.followers ? u.followers:[];
+					    	if(devotional.comment && devotional.media){
+						    	Comment.populate(devotional.comment, {path: 'user', model: 'User'}, function(err, comm){
+						    		comm.followers=followers;
+								    devotional.comment = comm;
+						    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
+						    			media.followers = followers;
+						    			devotional.media = media;
+						    			return res.status(201).json(devotional);
+						    		})
+						    	})					    		
+					    	} else {
+					    		if(devotional.comment){
+							    	Comment.populate(devotional.comment, {path: 'user', model: 'User'}, function(err, comm){
+							    		comm.followers=followers;
+									    devotional.comment = comm;
+							    		return res.status(201).json(devotional);			    				    		
+							    	})				    		
+						    	} else if(devotional.media){
+						    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
+						    			media.followers = followers;
+						    			devotional.media = media;
+						    			return res.status(201).json(devotional);
+						    		})
+						    	}					    		
+					    	}
+				    	});
 				    });			    	
 			    } else {
 				    if(errors && errors.length>0) {
 				    	return handleError(res, JSON.stringify(errors)); 
-				    }			    	
+				    }		
+//				    return res.status(400).send()
 			    }
 	    	});
 	    } else {
-	    	if(devotional.comment){
-			    Comment.populate(devotional.comment, {path:'user', model:'User'},function(err,comm){
-			    	return res.json(devotional);	    	
-			    });	    		    		
-	    	} else if(devotional.media){
-	    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
-	    			return res.json(devotional);
-	    		})
-	    		
-	    	}
+	    	Follow.findOne({user:devotional.user._id},function(err,u){
+	    		var followers = u && u.followers ? u.followers:[];
+		    	if(devotional.comment && devotional.media){
+			    	Comment.populate(devotional.comment, {path: 'user', model: 'User'}, function(err, comm){
+			    		comm.followers=followers;
+					    devotional.comment = comm;
+			    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
+			    			media.followers = followers;
+			    			devotional.media = media;
+			    			return res.status(201).json(devotional);
+			    		})
+			    	})					    		
+		    	} else {
+		    		if(devotional.comment){
+				    	Comment.populate(devotional.comment, {path: 'user', model: 'User'}, function(err, comm){
+				    		comm.followers=followers;
+						    devotional.comment = comm;
+				    		return res.status(201).json(devotional);			    				    		
+				    	})				    		
+			    	} else if(devotional.media){
+			    		Media.populate(devotional.media, [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}], function(err, media){
+			    			media.followers = followers;
+			    			devotional.media = media;
+			    			return res.status(201).json(devotional);
+			    		})
+			    	}					    		
+		    	}
+	    	});
 	    }
   })
 };
@@ -156,76 +192,105 @@ function insertUserRecords(user,devotional,callback){
 			image.save();
 			media = new Media({user: user._id, url:'', type: d.media.type, image: image._id, date: new Date()})
 	    }	    
-	    var rec = comment || media;	    
-		rec.save(function(err,rec){
-			if(err){
-				callback(err);
-			}
-			var entry = new FeedEntry({date: rec.date, user: rec.user});
-			if(rec.text){
-				entry.comment = rec._id;
-			} else {
-				entry.media = rec._id;
-			}
-			entry.save();									
-			var devotionals=[];
-			var errors=[];
-			each(d.scriptures, function(s, next){
-        		 var reference = s;
-        		 var start = 1;
-        		 if(reference.verses){
-        			 var vs = reference.verses.split("-");
-        			 start = parseInt(vs[0])||1;
-        		 }
-	             var devotion = new Devotional({day: day, book: reference.book, chapter: reference.chapter, verses: reference.verses,user: user._id});
-	             if(rec.text){
-	            	 devotion.comment = rec._id;
-	             } else {
-	            	 devotion.media = rec._id
-	             }
-				devotion.save(function(err,dev){
-					if(err){
-						errors.push(err);
-						console.log("error on devotional save"+ err);								       
-					} else {
-						devotionals.push(dev);
-						console.log("devotional saved");
-			    		 
-		        		 Annotation.findOne({ book: reference.book, chapter: reference.chapter, verse: start}, function(err, anno) {
-		        			 if(err){
-		        				 console.log(err);
-		        			 }
-		        			 if(!anno){
-		        				 anno= new Annotation({ book: reference.book, chapter: reference.chapter, verse: start});
-		        				 if(rec.text){
-		        					 anno.comments= [rec._id]; 
-		        				 } else {
-		        					 anno.media=[rec._id];
-		        				 }
-		        			 } else {
-		        				 if(rec.text){
-		        					 anno.comments.push(rec._id); 
-		        				 } else {
-		        					 anno.media.push(rec._id);
-		        				 }
-		        			 }
-				             anno.save(function(err,a) {
-						            	 if(err){
-						            		 console.log("error on annotation save"+ err);
-						            	 }
-										next();
-				            		  });
-		        		 });
-					}
-					
-				});
-        	}, function(err) {
-        		callback(errors.length!==0? errors : null,devotionals);
-        		console.log("devotionals created");        		
-        	});
-		});					
+	    var rec = comment || media;	  
+	    if(!rec) {
+	    	callback(null,[]);
+	    } else {
+	    	var pr=[];
+	    	if(comment){
+	    		comment.save(function(err,comm){
+	    			var entry = new FeedEntry({date: comm.date, user: comm.user, comment: comm._id});
+	    			entry.save();										    			
+	    		});
+	    	}
+	    	if(media){
+	    		media.save(function(err,med){
+	    			var entry = new FeedEntry({date: med.date, user: med.user, media: med._id});
+	    			entry.save();										    				    			
+	    		});
+	    	}
+	    	saveRecord(d,user,comment,media).then(function(values){
+	    		var errors=[];
+	    		var devotionals=[];
+	    		if(values && values.length>0){
+	    			for(var v=0; v<values.length;v++){
+	    				if(values[v].errors){
+	    					_.concat(errors,values[v].errors);
+	    				}
+	    				if(values[v].devotionals){
+	    					_.concat(devotionals,values[v].devotionals);
+	    				}
+	    			}
+	    		}
+	    		callback(errors,devotionals);
+	    	})
+	    }
 	});	
 }
+
+function saveRecord(devotional,user,comment,media){
+	return new Promise(function(res,rej){
+		var devotionals=[];
+		var errors=[];
+		each(devotional.scriptures, function(s, next){
+	   		 var reference = s;
+	   		 var start = 1;
+	   		 if(reference.verses){
+	   			 var vs = reference.verses.split("-");
+	   			 start = parseInt(vs[0])||1;
+	   		 }
+            var devotion = new Devotional({day: parseInt(devotional.day),topic:devotional.Topic, book: reference.book, chapter: reference.chapter, verses: reference.verses,user: user._id});
+            if(comment){
+           	 devotion.comment = comment._id;
+            } 
+            if(media) {
+           	 devotion.media = media._id
+            }
+			devotion.save(function(err,dev){
+				if(err){
+					errors.push(err);
+					console.log("error on devotional save"+ err);								       
+				} else {
+					devotionals.push(dev);
+					console.log("devotional saved");
+		    		 
+	        		 Annotation.findOne({ book: reference.book, chapter: reference.chapter, verse: start}, function(err, anno) {
+	        			 if(err){
+	        				 console.log(err);
+	        			 }
+	        			 if(!anno){
+	        				 anno= new Annotation({ book: reference.book, chapter: reference.chapter, verse: start});
+	        				 if(comment){
+	        					 anno.comments= [comment._id]; 
+	        				 } 
+	        				 if(media){
+	        					 anno.media=[media._id];
+	        				 }
+	        			 } else {
+	        				 if(comment){
+	        					 anno.comments.push(comment._id); 
+	        				 }
+	        				 if(media){
+	        					 anno.media.push(media._id);
+	        				 }
+	        			 }
+			             anno.save(function(err,a) {
+			            	 if(err){
+			            		 console.log("error on annotation save"+ err);
+			            	 }
+							next();
+	            		  });
+	        		 });
+				}
+				
+			});
+	   	}, function(err) {
+	   		res({"errors": errors.length!==0? errors : null, "devotionals": devotionals});
+	   		console.log("devotionals created");        		
+	   	});
+	});
+}
+
 function handleError(res, err) {
   return res.status(500).send(err);
 }

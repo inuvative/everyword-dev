@@ -39,10 +39,22 @@ function onRemove(socket, doc, cb) {
   socket.emit('homebase:remove', doc);
 }
 
-exports.sendToFeed = function(user,fe) {
-	io.emit('feed'+user._id+':response', fe);
-}
-
 function onRemoveFromFeed(socket, doc, cb) {
   socket.emit('feed'+doc.user._id+':remove', doc);
+}
+
+exports.sendToFeed = function(userId,fe) {
+	io.emit('feed'+userId+':new', fe);
+}
+
+exports.sendFeedDone = function(userId){
+	io.emit('feed'+userId+':done');
+}
+
+exports.sendFollowing = function(userId, ff){
+	io.emit('feed'+userId+':following',ff);
+}
+
+exports.sendAvailable = function(userId,u){
+	io.emit('feed'+userId+':available',u);
 }

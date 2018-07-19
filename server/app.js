@@ -10,7 +10,7 @@ process.env.PORT = 9001;
 
 var express = require('express');
 var mongoose = require('mongoose');
-
+//mongoose.set('debug', true);
 var config = require('./config/environment');
 var mockdb = null;
 // Connect to database

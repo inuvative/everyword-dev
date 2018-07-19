@@ -14,6 +14,13 @@ exports.index = function(req, res) {
   });
 };
 
+exports.find = function(req, res) {
+	  Remark.find({_id: {$in : req.body.remarks}}).populate('user').exec(function (err, remarks) {
+	    if(err) { return handleError(res, err); }
+	    return res.status(200).json(remarks);
+	  });
+	};
+
 // Get a single remark
 exports.show = function(req, res) {
   Remark.findById(req.params.id, function (err, remark) {

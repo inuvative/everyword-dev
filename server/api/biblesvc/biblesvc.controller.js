@@ -1,7 +1,10 @@
 'use strict';
 
 var _ = require('lodash');
+var each = require('async-each-series');
 var Biblesvc = require('./biblesvc.model');
+var bibleSocket = require('./biblesvc.socket');
+
 var bible = require('../../components/holy-bible');
 var javascripture = require('../../components/javascripture');
 
@@ -21,7 +24,17 @@ exports.index = function(req, res) {
   var tt = javascripture.api.reference.getTestament(book);
   tt = (tt==='hebrew') ? 'ot' : 'nt';
   bible.get(book+' '+chapter, 'kjv').then(function (verse) {
-     return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text, 'testament': tt});
+	  if(req.body && req.body.userId){
+		  each(verse.text, function(v,next) {
+			  bibleSocket.sendVerse(req.body.userId,v)
+			  next();
+		  },function(err){
+			  console.log("Sending verses to client")
+			  return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'testament': tt});
+		  });		  
+	  } else {
+	     return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text, 'testament': tt});		  
+	  }
   }, function(reason) {
       return handleError(res, reason);
   });
@@ -34,7 +47,17 @@ exports.changeVersion = function(req, res) {
   var chapter = req.params.chapter;
   var chapters = getSurroundingChapters(book,chapter);
   bible.get(book+' '+chapter, version.toLowerCase()).then(function (verse) {
-    return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text});
+	  if(req.body && req.body.userId){
+		  each(verse.text, function(v,next) {
+			  bibleSocket.sendVerse(req.body.userId,v)
+			  next();
+		  },function(err){
+			  console.log("Sending verses to client")
+			  return res.status(200).send({'prev':chapters.prev, 'next':chapters.next});
+		  });		  
+	  } else {		  
+		 return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text});
+	  }
   }, function(reason) {
       return handleError(res, reason);
   });

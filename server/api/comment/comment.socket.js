@@ -5,6 +5,7 @@
 'use strict';
 
 var Comment = require('./comment.model');
+var Follow = require('../homebase/follow.model');
 
 exports.register = function(socket) {
   Comment.schema.post('save', function (comment) {
@@ -20,7 +21,11 @@ exports.register = function(socket) {
 }
 
 function onSave(socket, comment, cb) {
-  socket.emit('comment'+comment.user._id+':save', comment);
+	Follow.findOne({user:comment.user._id}).select('followers').lean().exec(function(err,e2){
+		  comment.followers=e2 && e2.followers ? e2.followers: [];
+		  
+		  socket.emit('comment'+comment.user._id+':save', {_id: comment._id , comment: comment});		
+	});
 }
 
 function onRemove(socket, comment, cb) {

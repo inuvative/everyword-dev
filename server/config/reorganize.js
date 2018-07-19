@@ -18,6 +18,34 @@ var Comment = require('../api/comment/comment.model');
 var Media = require('../api/media/media.model');
 var Reference = require('../api/reference/reference.model');
 var Like = require('../api/comment/like.model');
+var Homebase = require('../api/homebase/homebase.model');
+var Follow = require('../api/homebase/follow.model');
+
+function populateFollowing(u,cb) {
+    Homebase.findOne({login: u._id},function(err,hb){
+        var following = hb.following.length ? hb.following : [];
+        User.find({_id:{$in: following}}).select('name').exec(function(err,u){
+        	following = u;
+            Homebase.find({following: u._id}).select('login').exec(function(err,hb2){
+            	var followers = hb2;
+                followers = followers.length?followers.map(function(f){return f.login;}):[];
+                User.find({_id:{$in: followers}}).select('name').exec(function(err,u2){
+                    var follow = new Follow({user:u._id, following: following, followers:u2});
+                    follow.save();
+                    cb();
+                });
+            });
+        });
+    } );
+}
+
+User.find({role:'user'},function(err,users){
+	each(users, function(u ,nextUser) {
+		populateFollowing(u,nextUser);
+	}, function(err) {
+		console.log("users updated");
+	})
+});
 
 /*
 User.find({},function(err,users){
@@ -57,22 +85,22 @@ User.find({},function(err,users){
 	});
 });
 */
-Like.find({}, function(err,likes){
-	each(likes, function(l ,nextLike) {
-		Comment.findById(l.comment, function(err,comment){
-			if(comment){
-				var i = comment.likers.indexOf(l._id);
-				if(i!==-1){
-					comment.likers[i]=l.user;
-				} else {
-					i = comment.likers.indexOf(l.user);
-					if(i===-1){
-						comment.likers.push(l.user);					
-					}
-				}
-				comment.save();
-			}
-			nextLike();
+//Like.find({}, function(err,likes){
+//	each(likes, function(l ,nextLike) {
+//		Comment.findById(l.comment, function(err,comment){
+//			if(comment){
+//				var i = comment.likers.indexOf(l._id);
+//				if(i!==-1){
+//					comment.likers[i]=l.user;
+//				} else {
+//					i = comment.likers.indexOf(l.user);
+//					if(i===-1){
+//						comment.likers.push(l.user);					
+//					}
+//				}
+//				comment.save();
+//			}
+//			nextLike();
 //			Media.find({user: u._id}, function(err,media){
 //				 if(media){
 //					 for(var m in media){
@@ -92,9 +120,9 @@ Like.find({}, function(err,likes){
 //						nextUser();
 //				 });
 //			});
-		});		
-	}, function(err) {
-		console.log("likes updated");
-	});
-	
-});
+//		});		
+//	}, function(err) {
+//		console.log("likes updated");
+//	});
+//	
+//});

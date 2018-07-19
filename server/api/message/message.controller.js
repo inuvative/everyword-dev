@@ -11,7 +11,7 @@ var smtpConfig = {
 	    secure: true, // use SSL 
 	    auth: {
 	        user: 'everywordbible@gmail.com',
-	        pass: 'artsehcro'
+	        pass: 'Artsehcro1!'
 	    }
 	};
 var transporter = nodemailer.createTransport(smtpConfig);

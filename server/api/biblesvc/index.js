@@ -8,6 +8,8 @@ router.get('/', controller.getBooks);
 router.get('/:testament', controller.getBooks);
 router.get('/:book/:chapter', controller.index);
 router.get('/:version/:book/:chapter', controller.changeVersion);
+router.post('/:book/:chapter', controller.index);
+router.post('/:version/:book/:chapter', controller.changeVersion);
 //router.get('/:version/:testament/:book/:chapter/:offset', controller.getOffsetChapter);
 
 //router.post('/', controller.create);

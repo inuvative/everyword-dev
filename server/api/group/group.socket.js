@@ -5,6 +5,7 @@
 'use strict';
 
 var Group = require('./group.model');
+var io = null;
 
 exports.register = function(socket) {
   Group.schema.post('save', function (group) {
@@ -13,6 +14,7 @@ exports.register = function(socket) {
   Group.schema.post('remove', function (group) {
     onRemove(socket, group);
   });
+  io=socket;
 }
 
 function onSave(socket, group, cb) {
@@ -21,4 +23,8 @@ function onSave(socket, group, cb) {
 
 function onRemove(socket, group, cb) {
   socket.emit('group'+group.creator+':remove', group);
+}
+
+exports.sendToFeed = function(groupId,fe) {
+	io.emit('feed'+groupId+':new', fe);
 }

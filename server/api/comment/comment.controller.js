@@ -5,6 +5,7 @@ var Like = require('./like.model');
 var Comment = require('./comment.model');
 var Homebase  = require('../homebase/homebase.model');
 var FeedEntry = require('../homebase/feed.entry');
+var Follow = require('../homebase/follow.model');
 
 
 // Get list of comments
@@ -37,10 +38,13 @@ exports.show = function(req, res) {
 exports.create = function(req, res) {
   Comment.create(req.body, function(err, comment) {
     if(err) { return handleError(res, err); }
-    Comment.populate(comment, {path: 'user', model: 'User'}, function(err,comm) {
+    Comment.populate(comment, {path: 'user', model: 'User'},function(err,comm) {
 		var entry = new FeedEntry({comment: comm._id, date: comm.date, user: comm.user});
-		entry.save();									
-    	return res.status(201).json(comm);    	    	
+		entry.save();	
+		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+			comm = f && f.followers ? _.merge(comm.toObject(),{'followers': f.followers}) : Object.assign(comm.toObject(),{'followers':[]})
+	    	return res.status(201).json(comm);    	    				
+		})
     });
   });
 };
@@ -60,7 +64,10 @@ exports.update = function(req, res) {
       });
       var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
       Comment.populate(comment,opts, function(err,comm) {
-      	return res.status(200).json(comm);    	    	
+  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+			comm = f && f.followers ? _.merge(comm.toObject(),{'followers': f.followers}) : Object.assign(comm.toObject(),{'followers':[]})
+			return res.status(200).json(comm);
+  		});
       });
 //      return res.status(200).json(comment);
     });
@@ -82,7 +89,10 @@ exports.like = function(req, res) {
             if (err) { return handleError(res, err); }
             var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
             Comment.populate(comm,opts, function(err,comm) {
-            	return res.status(200).json(comm);    	    	
+          		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+        			comm = f && f.followers ? _.merge(comm.toObject(),{'followers': f.followers}) : Object.assign(comm.toObject(),{'followers':[]})
+        			return res.status(200).json(comm);    	    	
+          		});
             });
 //            return res.status(200).json(comment);
           });    	

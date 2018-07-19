@@ -18,7 +18,11 @@ exports.show = function(req, res) {
   Reference.findById(req.params.id, function (err, reference) {
     if(err) { return handleError(res, err); }
     if(!reference) { return res.status(404).send('Not Found'); }
-    return res.json(reference);
+		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+  			var followers = f && f.followers ? f.followers : [];
+			reference =  Object.assign(reference.toObject(),{'followers': followers})
+			return res.json(reference);
+		});
   });
 };
 
@@ -29,7 +33,11 @@ exports.create = function(req, res) {
     Reference.populate(reference, {path: 'user', model: 'User'}, function(err,reference) {
 	    var entry = new FeedEntry({reference: reference._id, user: reference.user, date: reference.date});
 	    entry.save();	
-	    return res.status(201).json(reference);
+  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+  			var followers = f && f.followers ? f.followers : [];
+			reference =  Object.assign(reference.toObject(),{'followers': followers})
+			return res.status(201).json(reference);
+  		});
     });
   });
 };
@@ -49,7 +57,11 @@ exports.update = function(req, res) {
       });
       var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
       Reference.populate(updatedRef,opts, function(err,ref) {
-    	  return res.status(200).json(ref);
+	  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+	  			var followers = f && f.followers ? f.followers : [];
+				reference =  Object.assign(reference.toObject(),{'followers': followers})
+				return res.status(200).json(ref);
+	  		});
       });
     });
   });
@@ -84,7 +96,11 @@ exports.like = function(req, res) {
 	            if (err) { return handleError(res, err); }
 	            var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
 	            Reference.populate(ref,opts, function(err,ref) {
-	            	return res.status(200).json(ref);    	    	
+			  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+			  			var followers = f && f.followers ? f.followers : [];
+						ref =  Object.assign(ref.toObject(),{'followers': followers})
+						return res.status(200).json(ref);
+			  		});
 	            });
 	          });    	
 	    })

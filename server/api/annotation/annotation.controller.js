@@ -13,6 +13,7 @@ var Media = require('../media/media.model');
 var Reference = require('../reference/reference.model');
 var Feed = require('../homebase/feed.model');
 var FeedEntry = require('../homebase/feed.entry');
+var Follow = require('../homebase/follow.model');
 
 var javascripture = require('../../components/javascripture');
 
@@ -112,7 +113,7 @@ exports.annotationCount = function(req, res){
 		    if(!annotation) { return res.send(null); }
 		    var groups = req.body.groups ? _.map(req.body.groups,function(g){return mongooseTypes.ObjectId(g).id;}) : [];
 		    var comments = annotation.comments.filter(function(c) {
-		    	return !c.isPrivate || (c.group && groups.indexOf(c.group.id) !==-1) || c.user.id===mongooseTypes.ObjectId(req.params.user).id;
+		    	return c.user && (!c.isPrivate || (c.group && groups.indexOf(c.group.id) !==-1) || c.user.id===mongooseTypes.ObjectId(req.params.user).id);
 		    });
 		    var count = comments.length + annotation.references.length + annotation.media.length;
 		    
@@ -132,8 +133,10 @@ exports.findAnnotation = function(req, res) {
 };
 
 exports.findComments = function(req, res) {
+	
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('comments')
+	    .lean()
 	    .exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
 		    if(!annotation) { return res.send(null); }
@@ -143,8 +146,18 @@ exports.findComments = function(req, res) {
 		    Annotation.populate(annotation, opts, function(err, anno) {
 		    	var opts = [{path: 'remarks.user', select: 'name', model: 'User'}];
 		    	Comment.populate(anno.comments, opts).then(function(comments){
-		    		anno.comments = comments;
-		    		return res.status(200).json(anno);
+			    	anno.comments=[];
+		    		each(comments, function(comm,next) {
+		    			if(comm.user){
+				    		Follow.findOne({user:comm.user._id}).select('followers').exec(function(err,u){
+				    			comm.followers = u && u.followers ? u.followers : []; 
+				    			anno.comments.push(comm);
+				    			next();
+				    		});		    				
+		    			}
+		  		  },function(err){
+ 		    		  return res.status(200).json(anno);
+				  });	   			
 		    	}).end();		    	
 		    });	    
 	  });
@@ -213,13 +226,24 @@ exports.findFootnotes = function(req, res) {
 exports.findReferences = function(req, res) {
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('references')
+	    .lean()
 	    .exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
 		    if(!annotation) { return res.send(null); }
 		    var opts = {path: 'user', model: 'User'}; 
 	    	Reference.populate(annotation.references, opts).then(function(references){
-	    		annotation.references = references;
-	    		return res.json(annotation);
+	    		annotation.references = [];
+	    		each(references, function(ref,next) {
+	    			if(references.user){
+			    		Follow.findOne({user:ref.user._id}).select('followers').exec(function(err,u){
+			    			ref.followers = u && u.followers ? u.followers : []; 
+			    			annotation.references.push(ref);
+			    			next();
+			    		});	    				
+	    			}
+	  		  },function(err){
+	  			return res.status(200).json(annotation);
+			  });	   				    		
 	    	});		    
 	  });
 };
@@ -227,6 +251,7 @@ exports.findReferences = function(req, res) {
 exports.findMedia = function(req, res) {
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('media')
+	    .lean()
 	    .exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
 		    if(!annotation) { return res.send(null); }
@@ -234,8 +259,18 @@ exports.findMedia = function(req, res) {
 		                {path: 'image', model: 'Image'},
 		                ];
 		    	Media.populate(annotation.media, opts).then(function(media){
-		    		annotation.media = media;
-		    		return res.status(200).json(annotation);
+		    		annotation.media = [];
+		    		each(media, function(media,next) {
+		    			if(media.user){
+				    		Follow.findOne({user:media.user._id}).select('followers').exec(function(err,u){
+				    			media.followers = u && u.followers ? u.followers : []; 
+				    			annotation.media.push(media);
+				    			next();
+				    		});		    				
+		    			}
+		  		  },function(err){
+		  			return res.status(200).json(annotation);
+				  });	   				    				    		
 		    	}).end();		    	
 		    });	    
 };
