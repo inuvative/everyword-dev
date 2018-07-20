@@ -6,6 +6,8 @@ var Image = require('./media.image');
 var multiparty = require('multiparty');
 var FeedEntry = require('../homebase/feed.entry');
 var Like = require('../comment/like.model');
+var Homebase  = require('../homebase/homebase.model');
+var Follow = require('../homebase/follow.model');
 
 // Get list of medias
 exports.index = function(req, res) {
@@ -51,7 +53,7 @@ exports.create = function(req, res) {
 				    if(err) { return handleError(res, err); }
 			    	updateFeed(media);
 				    media.populate('image', function(err,media){
-				  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+				  		Follow.findOne({user:media.user._id}).select('followers').lean().exec(function(err,f){
 				  			var followers = f && f.followers ? f.followers : [];
 							media =  Object.assign(media.toObject(),{'followers': followers})
 					        return res.status(201).json(media);
@@ -63,7 +65,7 @@ exports.create = function(req, res) {
 		  Media.create(body, function(err, media) {
 			    if(err) { return handleError(res, err); }
 			    updateFeed(media);
-		  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+		  		Follow.findOne({user:media.user._id}).select('followers').lean().exec(function(err,f){
 		  			var followers = f && f.followers ? f.followers : [];
 					media =  Object.assign(media.toObject(),{'followers': followers})
 					return res.status(201).json(media);
@@ -88,7 +90,7 @@ exports.update = function(req, res) {
       });      
       var opts = [{path: 'user', model: 'User'}];//,{path: 'remarks.user', model: 'User'}];
       Media.populate(media,opts, function(err,media) {
-	  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+	  		Follow.findOne({user:media.user._id}).select('followers').lean().exec(function(err,f){
 	  			var followers = f && f.followers ? f.followers : [];
 				media =  Object.assign(media.toObject(),{'followers': followers})
 				return res.status(200).json(media);
@@ -113,7 +115,7 @@ exports.like = function(req, res) {
             if (err) { return handleError(res, err); }
             var opts = [{path: 'user', model: 'User'},{path: 'image', model: 'Image'}];//,{path: 'remarks.user', model: 'User'}];
             Media.populate(med,opts, function(err,med) {
-		  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+		  		Follow.findOne({user:med.user._id}).select('followers').lean().exec(function(err,f){
 		  			var followers = f && f.followers ? f.followers : [];
 					med =  Object.assign(med.toObject(),{'followers': followers})
 					return res.status(200).json(med);

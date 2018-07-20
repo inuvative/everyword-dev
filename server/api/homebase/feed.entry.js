@@ -34,10 +34,15 @@ function updateFeeds(entry, user, action){
 	var user = user.toObject()
 	Group.find({creator:user._id},'members').lean().exec(function(err,groups) {
 		function getMembers(acc,curr) {
-			var members = acc.members||[];
-			return members.concat(curr.members);
+			var members = acc.members || [];
+		    console.log("initial members: "+members);
+		    if(curr.members){
+		      members = members.concat(curr.members);
+			  console.log("added members: "+members);
+		    }
+			return {"members": members};
 		};
-		var allMembers = groups.reduce(getMembers,{});
+		var allMembers = groups.reduce(getMembers,{}).members || [];
 		Follow.findOne({user:user._id},'followers').lean().exec(function(err,res){
 			 if(!res)return;
 			 var followers = res.followers.map(function(f){return f.id})||[];

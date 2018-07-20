@@ -4,6 +4,8 @@ var _ = require('lodash');
 var Reference = require('./reference.model');
 var FeedEntry = require('../homebase/feed.entry');
 var Like = require('../comment/like.model');
+var Homebase  = require('../homebase/homebase.model');
+var Follow = require('../homebase/follow.model');
 
 // Get list of references
 exports.index = function(req, res) {
@@ -33,7 +35,7 @@ exports.create = function(req, res) {
     Reference.populate(reference, {path: 'user', model: 'User'}, function(err,reference) {
 	    var entry = new FeedEntry({reference: reference._id, user: reference.user, date: reference.date});
 	    entry.save();	
-  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+  		Follow.findOne({user:reference.user._id}).select('followers').lean().exec(function(err,f){
   			var followers = f && f.followers ? f.followers : [];
 			reference =  Object.assign(reference.toObject(),{'followers': followers})
 			return res.status(201).json(reference);
@@ -57,7 +59,7 @@ exports.update = function(req, res) {
       });
       var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
       Reference.populate(updatedRef,opts, function(err,ref) {
-	  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+	  		Follow.findOne({user:ref.user._id}).select('followers').lean().exec(function(err,f){
 	  			var followers = f && f.followers ? f.followers : [];
 				reference =  Object.assign(reference.toObject(),{'followers': followers})
 				return res.status(200).json(ref);
@@ -96,7 +98,7 @@ exports.like = function(req, res) {
 	            if (err) { return handleError(res, err); }
 	            var opts = [{path: 'user', model: 'User'},{path: 'remarks.user', model: 'User'}];
 	            Reference.populate(ref,opts, function(err,ref) {
-			  		Follow.findOne({user:comm.user._id}).select('followers').lean().exec(function(err,f){
+			  		Follow.findOne({user:ref.user._id}).select('followers').lean().exec(function(err,f){
 			  			var followers = f && f.followers ? f.followers : [];
 						ref =  Object.assign(ref.toObject(),{'followers': followers})
 						return res.status(200).json(ref);

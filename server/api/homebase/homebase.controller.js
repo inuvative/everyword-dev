@@ -99,36 +99,44 @@ function updateFeed(owner,user,follow) {
 	if(follow){
 		FeedEntry.find({user:user},function(err,entries){
 			var userEntries = entries.map(function(e) { return { id: e._id, user: e.user, date: e.date}});
-			Feed.update({owner:owner},{$push: {entries: { $each: userEntries}}}, function(err,feeds){
+			NewFeed.update({owner:owner},{$push: {entries: { $each: userEntries}}}, function(err,feeds){
 				
 			});			
 		});
 	} else {
-		Feed.update({owner:owner}, {$pull: {entries: {user: user}}}, function(err,feeds){
+		NewFeed.update({owner:owner}, {$pull: {entries: {user: user}}}, function(err,feeds){
 			
 		});
 	}
 }
 
 exports.follow = function(req,res){
-	Follow.findOneAndUpdate({user: req.params.id},{$push: {'following' : req.body}},{upsert:true},function(err,follows){
+	Follow.findOneAndUpdate({user: req.params.id},{$push: {'following' : req.body}},{'new':true,upsert:true},function(err,follows){
 		if(err){return handleError(res,err);}		
 		updateFeed(req.params.id,req.body.id,true)
 		User.findById(req.params.id, function(err,user){
 			var follower = {id: user._id, name: user.name};
-			Follow.findOneAndUpdate({user:req.body.id},{$push:{'followers': follower}},{upsert:true})
+			Follow.update({user:req.body.id},{$push:{'followers': follower}},{upsert:true},function(err,follows){
+				if(err){
+					console.log("Failed update error: "+err);
+				}
+			});
 		})
 		return res.status(200).json(follows);
 	})
 }
 
 exports.unfollow = function(req,res){
-	Follow.findOneAndUpdate({user: req.params.id},{$pull: {'following' : {user: req.body.id}}},{upsert:true},function(err,follows){
+	Follow.findOneAndUpdate({user: req.params.id},{$pull: {'following' : {'id': req.body.id}}},{'new':true,upsert:true},function(err,follows){
 		if(err){return handleError(res,err);}
 		updateFeed(req.params.id,req.body.id,false)
 		User.findById(req.params.id, function(err,user){
 			var follower = {id: user._id, name: user.name};
-			Follow.findOneAndUpdate({user:req.body.id},{$pull:{'followers': {user: follower.id}}},{upsert:true})
+			Follow.update({user:req.body.id},{$pull:{'followers': {'id': follower.id}}},{upsert:true},function(err,follows){
+				if(err){
+					console.log("Failed update error: "+err);
+				}
+			});
 		})
 		return res.status(200).json(follows);
 	})
