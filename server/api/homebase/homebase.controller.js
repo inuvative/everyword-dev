@@ -35,17 +35,23 @@ exports.show = function(req, res) {
     if(err) { return handleError(res, err); }    
     if(!homebase) {
     	homebase = new Homebase({login: req.params.id});
-    	homebase.save();
-    	return sendJSON(res,{'homebase': {'login':homebase.login}, 'userIds':[]});
+    	homebase.save(function (err, hb) {
+        	followTopUsers(hb, function(following) {
+            	return sendJSON(res,{'homebase': {'login':hb.login}, 'userIds':following});    		
+        	});    		
+    	});
+    } else {
+    	Follow.findOne({user:homebase.login}, function(err, follow){
+    		if(err) { return handleError(res,err)}
+    		var following=[]
+    		if(follow){
+                following = _.map(follow.following,'id');    			
+    		}
+            var groupMembers = _.map(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);}),function(m){return m.toJSON();});
+            var userIds = _.uniq(following.concat(groupMembers));
+            return sendJSON(res,{'homebase': {'login':homebase.login, 'tag':homebase.tags}, 'userIds':userIds});    	    		
+    	})
     }
-    var following = homebase.following.map(function(f){ return f.toJSON(); });
-    var groupMembers = _.map(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);}),function(m){return m.toJSON();});
-    var userIds = _.uniq(following.concat(groupMembers));
-//	homebase.userIds=userIds;
-//	getFeed(res,homebase.login,userIds,function(feed){
-//		userIds = userIds.filter(function(u) {return u._id !== homebase.login;});
-	    return sendJSON(res,{'homebase': {'login':homebase.login, 'tag':homebase.tags}, 'userIds':userIds});		
-//	});
   });
 };
 
@@ -99,12 +105,12 @@ function updateFeed(owner,user,follow) {
 	if(follow){
 		FeedEntry.find({user:user},function(err,entries){
 			var userEntries = entries.map(function(e) { return { id: e._id, user: e.user, date: e.date}});
-			NewFeed.update({owner:owner},{$push: {entries: { $each: userEntries}}}, function(err,feeds){
+			NewFeed.findOneAndUpdate({owner:owner},{$push: {'entries': { $each: userEntries}}},{'new':true,upsert:true}, function(err,feeds){
 				
 			});			
 		});
 	} else {
-		NewFeed.update({owner:owner}, {$pull: {entries: {user: user}}}, function(err,feeds){
+		NewFeed.update({owner:owner}, {$pull: {'entries': {user: user}}}, function(err,feeds){
 			
 		});
 	}
@@ -268,58 +274,83 @@ exports.getFeedNew = function(req, res){
 
 exports.getFeed = function(req, res){
 	  var owner = req.params.id;  
+	  NewFeed.findOne({ owner: owner},function (err, feed) {
+		  if(err) { return handleError(res, err); }
+		  if(!feed){
+			  Comment.aggregate(
+	    			    [
+	    			        // Grouping pipeline
+	    			        { "$group": { 
+	    			            "_id": "$user", 
+	    			            "count": { "$sum": 1 }
+	    			        }},
+	    			        {"$match" : { "_id": { "$ne" : null}}},
+	    			        // Sorting pipeline
+	    			        { "$sort": { "count": -1 } },
+	    			        // Optionally limit results
+	    			        { "$limit": 20 }
+	    			    ],
+	    			    function(err,result) {
+	    			       var following=[]
+	    			       if(result){
+	    			    	   var users = _.filter(result,function(u){
+	    			    		   		return u && u._id && !u._id.equals(owner)
+	    			    		   });
+	    						  FeedEntry.find({user : { $in : users}}, function(err, entries) {
+	    							  var entryIds = _.map(entries,'id')  
+	    							  return populateFeed(req,res,entryIds)
+	    						  });
+	    			       }
+	    			    })
+		  } else {
+			  var entries = _.map(feed.entries, function(e){return e.id;});
+			  return populateFeed(req,res,entries)
+		  }  			 
+	  });
+}
+function populateFeed(req,res,entries){
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();	
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();
 	  var dateQuery = req.query.after === undefined ? {"$lte":dt} : {"$lt" : dt};
 	  var populate_fields = [{ path: 'user'}, {path: 'comment'}, {path: 'media'}, {path: 'reference'}];
 	  
-	  NewFeed.findOne({ owner: owner},function (err, feed) {
-		  if(err||!feed){
-			  return sendResponse(res,null);
-		  }
-//  	      followEverywordUser(homebase, function(following) {
-//  			  var users = _.uniq(following.concat(_.flatMap(homebase.groups,function(g) { return g.members.concat(g.creator);})));
-//  			  users = _.union([owner],users);		 
-  			var entries = _.map(feed.entries, function(e){return e.id;}); 
-  			 var feedEntries=[];
-		  	 FeedEntry.find({_id : {$in : entries}, date: dateQuery}).lean().sort('-date').limit(20)
-  			  	.populate('user comment media reference')
-  			  	.stream()
-  			  	.on('data',	function(e){
-  		   		  Follow.findOne({user:e.user._id}).select('followers').lean().exec(function(err,e2){
-  		   			  e.followers=e2 && e2.followers ? e2.followers: [];
-  		   			  var anno = e.comment||e.media||e.reference;
-  		   			  Remark.find({_id:{$in : anno.remarks}}).populate('user').exec(function(err,remarks){
-  						  if(e.comment){
-  							  e.comment.user=e.user;
-  							  e.comment.remarks = remarks||[];
-  							  Group.findOne({_id: e.comment.group}, function(err, group){
-  								  e.comment.group=group;
-  								  feedEntries.push(e);
-  							  });
-  						  }
-  						  else if(e.media) {
-  							  e.media.user=e.user;
-  							  Image.findOne({_id: e.media.image}, function(err,image){
-  								  e.media.image=image;
-  								  e.media.remarks = remarks||[];
-  								  feedEntries.push(e);
-  							  });
-  						  } else if(e.reference){
-  							  e.reference.user = e.user;
-  							  e.reference.remarks = remarks||[];
-  							  feedEntries.push(e);
-  						  }	   				  
-  		   			  });
-  		   		  });
-  			  	})
-  			  	.on('end',function(){
-  			  		var result = _.orderBy(feedEntries,['date'],['desc']);
-  			  		return sendJSON(res,result);
-  			  	});  	    	  
-//  	      });
-	  });
+	 var feedEntries=[];
+  	 FeedEntry.find({_id : {$in : entries}, date: dateQuery}).lean().sort('-date').limit(20)
+		  	.populate('user comment media reference')
+		  	.stream()
+		  	.on('data',	function(e){
+	   		  Follow.findOne({user:e.user._id}).select('followers').lean().exec(function(err,e2){
+	   			  e.followers=e2 && e2.followers ? e2.followers: [];
+	   			  var anno = e.comment||e.media||e.reference;
+	   			  Remark.find({_id:{$in : anno.remarks}}).populate('user').exec(function(err,remarks){
+					  if(e.comment){
+						  e.comment.user=e.user;
+						  e.comment.remarks = remarks||[];
+						  Group.findOne({_id: e.comment.group}, function(err, group){
+							  e.comment.group=group;
+							  feedEntries.push(e);
+						  });
+					  }
+					  else if(e.media) {
+						  e.media.user=e.user;
+						  Image.findOne({_id: e.media.image}, function(err,image){
+							  e.media.image=image;
+							  e.media.remarks = remarks||[];
+							  feedEntries.push(e);
+						  });
+					  } else if(e.reference){
+						  e.reference.user = e.user;
+						  e.reference.remarks = remarks||[];
+						  feedEntries.push(e);
+					  }	   				  
+	   			  });
+	   		  });
+		  	})
+		  	.on('end',function(){
+		  		var result = _.orderBy(feedEntries,['date'],['desc']);
+		  		return sendJSON(res,result);
+		  	});  	    	  	
 }
 
 exports.getComments = function(req, res) {
@@ -362,114 +393,75 @@ var getCounts = function(user,cb){
 	});
 }
 
-exports.getFollowing = function(req, res) {
+exports.getFollowing = function(req,res){
     var all=req.query.all=="true" ? true : false;
     var lastId=req.query.lastid;
     var name=req.query.name;
     var avail=(req.query.available=="true");
     var userId=req.params.id;
-	Follow.find({ user:userId }).exec(function (err, follow) {
+	Follow.findOne({ user:userId }).exec(function (err, follow) {
 	    if(err) { return handleError(res, err); }
-	    if(!follow||follow.length===0) return res.send(null);
-	    follow=follow[0];
-	    User.findById(userId, function(err,user){
-	    	if(user.role==='guest' || follow.following.length==0){
-	    		Comment.aggregate(
-	    			    [
-	    			        // Grouping pipeline
-	    			        { "$group": { 
-	    			            "_id": "$user", 
-	    			            "count": { "$sum": 1 }
-	    			        }},
-	    			        {"$match" : { "_id": { "$ne" : null}}},
-	    			        // Sorting pipeline
-	    			        { "$sort": { "count": -1 } },
-	    			        // Optionally limit results
-	    			        { "$limit": 20 }
-	    			    ],
-	    			    function(err,result) {
-	    			       var following=[]
-	    			       if(result){
-	    			    	   var users = _.filter(result,function(u){
-	    			    		   return u && u._id && !u._id.equals(user.id)
-	    			    		   });
-		    			       User.find({$or: [{_id:{ $in : users }},{email:'everywordbible@gmail.com'}]})
-		    			       .stream()
-		    			       .on('data',function(user) {
-		    			    	   following.push(user);
-//		    		    			follow.following = _.sortBy(_.map(users, function(u){return {id:u._id, name: u.name};}),'id');
-		    		    		})
-		    	  			  	.on('end',function(){
-		    	  			  		following = _.sortBy(following,'_id');
-		    	  			  		follow.following=_.map(following, function(f){return {"id":f._id,"name":f.name}});
-		    	  			  		follow.save();
-		    	  			  		return sendJSON(res,following);
-		    	  			  	});  	    	  
-		    			       // Result is an array of documents	    			    	   
-	    			       }
-	    			    }
-	    			);
-	    	} else {
-	    		var following = follow.following;	 
-	    		var results=[]
-	    		if(avail){
-	    			var ids = _.map(following,'id');
-		    		var query = lastId ? {_id:{ $nin: ids, $gt: mongooseTypes.ObjectId(lastId)}} : {_id: {$nin: ids}};
-		    		if(name){
-		    			query.name = {$regex: name, $options: 'i' };
-		    		}
-	    			limit=20;
-		    		User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean()
-		    		.stream()
-		    		.on('data',function (user) {
-		    		    if(user){
-    		    			results.push(user)
-		    		    }	    			
-		    		})
-		    		.on('end', function(){
-	  			  		results = _.sortBy(results,'_id');
-	    		    	each(results, function(u ,next) {
-	    		    		getCounts(u,function(counts){
-	    		    			_.assign(u,counts);
-	    		    		    next();	    	
-	    		    		});
-    				  },function(err){
-    					  return sendJSON(res,results);		    			
-    				  });
+	    if(!follow){
+	    	follow = new Follow({user:userId})
+	    	follow.save()
+	    }
+		var following = follow.following;	 
+		var results=[]
+		if(avail){
+			var ids = _.map(following,'id');
+    		var query = lastId ? {_id:{ $nin: ids, $gt: mongooseTypes.ObjectId(lastId)}} : {_id: {$nin: ids}};
+    		if(name){
+    			query.name = {$regex: name, $options: 'i' };
+    		}
+			limit=20;
+    		User.find(query, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean()
+    		.stream()
+    		.on('data',function (user) {
+    		    if(user){
+	    			results.push(user)
+    		    }	    			
+    		})
+    		.on('end', function(){
+		  		results = _.sortBy(results,'_id');
+		    	each(results, function(u ,next) {
+		    		getCounts(u,function(counts){
+		    			_.assign(u,counts);
+		    		    next();	    	
 		    		});
-	    		} else {
-	    			var results=[]
-		    		var limit = !all && following.length>20 ? 20 : following.length;
-		    		if(lastId){
-		    			following = _.filter(following,function(f){return _.gt(f.id,mongooseTypes.ObjectId(lastId))});
-		    		}
-		    		if(name){
-//		    			query.name = {$regex: name, $options: 'i' };
-		    			following = _.filter(following,function(f){return new RegExp(name, 'i').test(f.name)});
-		    		}
-	    			following = _.sortBy(_.slice(following,0,limit),'id'); 
-	    			ids = _.map(following,'id');
-	    			User.find({_id : {$in: ids}}, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean()
-	    			.stream()
-	    			.on('data',function (user) {
-	    				if(user){
-    		    			results.push(user);	    					
-	    				}
-	    			})
-	    			.on('end',function(){
-	  			  		results = _.sortBy(results,'_id');
-		    			each(results, function(u ,next) {
-	    		    		getCounts(u,function(counts){
-	    		    			_.assign(u,counts);
-	    		    		    next();	    	
-	    		    		});
-    				  },function(err){
-	  			  			return sendJSON(res,results);	    				
-    				  });	    				
-	    			});
-	    		}
-	    	}
-	    })
+			  },function(err){
+				  return sendJSON(res,results);  
+			  });
+    		});
+		} else {
+			var results=[]
+    		var limit = !all && following.length>20 ? 20 : following.length;
+    		if(lastId){
+    			following = _.filter(following,function(f){return _.gt(f.id,mongooseTypes.ObjectId(lastId))});
+    		}
+    		if(name){
+    			following = _.filter(following,function(f){return new RegExp(name, 'i').test(f.name)});
+    		}
+			following = _.sortBy(_.slice(following,0,limit),'id'); 
+			ids = _.map(following,'id');
+			User.find({_id : {$in: ids}}, '-salt -hashedPassword').sort({_id: 1}).limit(limit).lean()
+			.stream()
+			.on('data',function (user) {
+				if(user){
+	    			results.push(user);	    					
+				}
+			})
+			.on('end',function(){
+		  		results = _.sortBy(results,'_id');
+    			each(results, function(u ,next) {
+		    		getCounts(u,function(counts){
+		    			_.assign(u,counts);
+		    		    next();	    	
+		    		});
+			  },function(err){
+  				return sendJSON(res,results);	    				
+			  });	    				
+			});
+		}	    	
 	  });
 };
 
@@ -518,17 +510,64 @@ exports.getLikes = function(req, res) {
 	  });
 };
 
-function followEverywordUser(homebase, cb){
-	User.findOne({email: 'everywordbible@gmail.com'}, function(err, user){
+function followTopUsers(homebase,callback){
+	User.findOne({_id: homebase.login}, function(err, user){
 		if(err || !user){
-			cb(homebase.following);
-		} else {
-			if(homebase.following.indexOf(user._id)===-1){
-				homebase.following.push(user._id);
-				homebase.save();
-			}
-			cb(homebase.following);
-		}
+			return;
+		} 
+    	if(user.role === 'user'){
+    		Comment.aggregate(
+    			    [
+    			        // Grouping pipeline
+    			        { "$group": { 
+    			            "_id": "$user", 
+    			            "count": { "$sum": 1 }
+    			        }},
+    			        {"$match" : { "_id": { "$ne" : null}}},
+    			        // Sorting pipeline
+    			        { "$sort": { "count": -1 } },
+    			        // Optionally limit results
+    			        { "$limit": 20 }
+    			    ],
+    			    function(err,result) {
+    			       var following=[]
+    			       if(result){
+    			    	   var users = _.filter(result,function(u){
+    			    		   		return u && u._id && !u._id.equals(user.id)
+    			    		   });
+	    			       User.find({$or: [{_id:{ $in : users }},{email:'everywordbible@gmail.com'}]})
+	    			       .stream()
+	    			       .on('data',function(user) {
+	    			    	   following.push(user);
+	    			    	   updateFeed(homebase.login,user._id,true)
+	    		    		})
+	    	  			  	.on('end',function(){
+	    	  			  		following = _.sortBy(following,'_id');
+	    	  			  		following = _.map(following, function(f){return {"id":f._id,"name":f.name}});
+		    	  			  	Follow.findOneAndUpdate({'user': homebase.login},{$push: {'following' : { $each: following}}},{'new':true,upsert:true},function(err,follows){
+		    	  					if(err){return handleError(res,err);}		
+		    	  					following.forEach(function(f){
+			    	  					User.findById(f.id, function(err,u){
+			    	  						var follower = {id: user._id, name: user.name};
+			    	  						Follow.update({'user':u._id},{$push:{'followers': follower}},{upsert:true},function(err,follows){
+			    	  							if(err){
+			    	  								console.log("Failed update error: "+err);
+			    	  							}
+			    	  						});
+			    	  					})		    	  						
+		    	  					})
+		    	  				});	    	  			  		
+		    	  			  	if(callback){
+		    	  			  		callback(_.map(following, 'id'));
+		    	  			  	}
+	    	  			  	});  	    	  
+    			       }
+    			    }
+    			);
+    	} else {
+    		if(callback)
+    			callback([]);
+    	}
 	});
 }
 

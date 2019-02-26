@@ -4,8 +4,9 @@ var express = require('express');
 var controller = require('./biblesvc.controller');
 var router = express.Router();
 
-router.get('/', controller.getBooks);
+router.get('/', controller.getTestaments);
 router.get('/:testament', controller.getBooks);
+router.post('/:testament', controller.getBooks);
 router.get('/:book/:chapter', controller.index);
 router.get('/:version/:book/:chapter', controller.changeVersion);
 router.post('/:book/:chapter', controller.index);

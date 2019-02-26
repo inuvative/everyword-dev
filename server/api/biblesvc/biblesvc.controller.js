@@ -16,6 +16,23 @@ var TESTAMENTS = {
 		'nt':NT
 };
 
+var LDS = require('./lds.model');
+
+exports.getTestaments = function(req, res) {
+	
+	if(req.query && req.query.version == 'lds'){
+		LDS.aggregate([
+	        { "$group": { _id : { id: "$volume_id", tt: "$volume_short_title", title: "$volume_title"}}},
+	        {"$project" : { _id: 0, id: "$_id.id", tt: {"$toLower": "$_id.tt"}, title : "$_id.title"}}
+	    ],
+		function(err,lds) {
+			return res.status(200).send(lds)
+		});
+	} else {
+		return res.status(200).send([{'tt': 'ot','title': 'Old Testament', 'id': 1},{'tt': 'nt' ,'title': 'New Testament', 'id': 2}])		
+	}
+}
+
 // Get list of biblesvcs
 exports.index = function(req, res) {
   var book = req.params.book;
@@ -45,23 +62,68 @@ exports.changeVersion = function(req, res) {
   var version = req.params.version;
   var book = req.params.book;
   var chapter = req.params.chapter;
-  var chapters = getSurroundingChapters(book,chapter);
-  bible.get(book+' '+chapter, version.toLowerCase()).then(function (verse) {
-	  if(req.body && req.body.userId){
-		  each(verse.text, function(v,next) {
-			  bibleSocket.sendVerse(req.body.userId,v)
-			  next();
-		  },function(err){
-			  console.log("Sending verses to client")
-			  return res.status(200).send({'prev':chapters.prev, 'next':chapters.next});
-		  });		  
-	  } else {		  
-		 return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text});
-	  }
-  }, function(reason) {
-      return handleError(res, reason);
-  });
+  if(version === 'lds'){
+	  getLDSVerses(req,res);
+  } else {
+	  var chapters = getSurroundingChapters(book,chapter);
+	  bible.get(book+' '+chapter, version.toLowerCase()).then(function (verse) {
+		  if(req.body && req.body.userId){
+			  each(verse.text, function(v,next) {
+				  bibleSocket.sendVerse(req.body.userId,v)
+				  next();
+			  },function(err){
+				  console.log("Sending verses to client")
+				  return res.status(200).send({'prev':chapters.prev, 'next':chapters.next});
+			  });		  
+		  } else {		  
+			 return res.status(200).send({'prev':chapters.prev, 'next':chapters.next, 'verses': verse.text});
+		  }
+	  }, function(reason) {
+	      return handleError(res, reason);
+	  });	  
+	  
+  }
 };
+
+function getLDSVerses(req,res) {
+  var book = req.params.book;
+  var chapter = req.params.chapter;
+  LDS.find({'book_title': book, 'chapter_number': chapter}, function(err,lds) {
+	  if(err) { return handleError(res, err); }
+	  if(lds && lds.length != 0){
+		  getLDSSurroundingChapters(lds[0].book_id,lds[0].chapter_id).then(function(chapters) {
+			  var verses = _.sortBy(_.map(lds,function(s) { return { 'verse': s.verse_number,'text': s.scripture_text}}),['verse']);
+			  each(verses, function(v,next) {
+				  bibleSocket.sendVerse(req.body.userId,v)
+				  next();
+			  },function(err){
+				  console.log("Sending verses to client")
+				  return res.status(200).send({'prev':chapters.prev, 'next':chapters.next});
+			  });
+		  })
+	  }
+  })
+}
+
+function getLDSSurroundingChapters(bookId,chapterId){
+	return new Promise(function(resolve,reject) {
+		LDS.find({"chapter_id" :{ "$or" : [chapterId+1, chapterId-1]}}, function(err,chapters) {
+			var prev = _.find(chapters,['chapter_id',chapterId-1]);
+			var next = _.find(chapters,['chapter_id',chapterId+1]);
+			if(!prev){
+				prev=undefined;
+			} else { 
+				prev = {'book': prev.book_title, 'chapter': prev.chapter_number};
+			}
+			if(!next){
+				next=undefined;
+			} else {
+				next = {'book': next.book_title, 'chapter': next.chapter_number};
+			}
+			resolve({'prev':prev, 'next':next});
+		})
+	});
+}
 
 function getSurroundingChapters(book,chapter) {
 	var reference = {};
@@ -82,11 +144,29 @@ function getSurroundingChapters(book,chapter) {
 	return {'prev': prev, 'next': next};
 }
 
+function getLDSBooks(req, res) {
+	var toMatch = (req.params.testament || 'ot').toUpperCase()
+	LDS.aggregate([
+	    { "$match": {"volume_short_title" : toMatch }},
+        { "$group" :{ _id: { id: "$book_id", name:  "$book_title"}, chapters: { "$addToSet": "$chapter_number" } } }, 
+        { "$project" : { _id: 0, id : "$_id.id", name : "$_id.name", chapters : "$chapters"}}, 
+        { "$sort" : { id : 1}}
+    ],
+	function(err,ldsBooks) {
+		var books = _.map(ldsBooks, function(book) { return _.pick(book, ["name", "chapters"])})
+		return res.status(200).send(books)
+	});
+}
+
 exports.getBooks = function(req, res) {
-	  var tt = req.params.testament || 'ot';
-	  var books = TESTAMENTS[tt];
-	  if(!books) { return res.status(404).send('Not Found');}
-	  return res.json(books); 
+	  if(req.query && req.query.version === 'lds') {
+		  return getLDSBooks(req, res);
+	  } else {
+		  var tt = req.params.testament || 'ot';
+		  var books = TESTAMENTS[tt];
+		  if(!books) { return res.status(404).send('Not Found');}
+		  return res.json(books); 		  		  
+	  }
 };
 
 exports.getOffsetChapter = function(req,res){
