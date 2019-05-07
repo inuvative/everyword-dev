@@ -15,7 +15,8 @@ exports.index = function(req, res) {
 // Get a readings by date
 exports.readingsOfDay = function(req, res) {
   var dt = new Date(req.params.date);
-  DailyReading.find({'day': dt}, function (err, dailyreadings) {
+  dt.setHours(0,0,0,0);
+  DailyReading.find({$and : [{'day': {$lte : dt}},{'endDay': {$gte : dt}}]}, function (err, dailyreadings) {
     if(err) { return handleError(res, err); }
     if(!dailyreadings) { return res.status(404).send('Not Found'); }
     return res.json(dailyreadings);

@@ -5,6 +5,7 @@ var mongoose = require('mongoose'),
 
 var DailyReadingSchema = new Schema({
   day: Date,
+  endDay: Date,
   testament: String,
   book: String,
   chapter: Number,
