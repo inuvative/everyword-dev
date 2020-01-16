@@ -30,7 +30,7 @@ exports.show = function(req, res) {
 exports.create = function(req, res) {
   var form = new multiparty.Form();	 
   form.maxFieldsSize = 5 * 1024 * 1024;
-  form.parse(req, function(err, fields, files) {
+  form.parse(req.body.formdata, function(err, fields, files) {
 	  if(err){
 		  return handleError(res, err);
 	  }
@@ -39,7 +39,9 @@ exports.create = function(req, res) {
 				name: fields.name[0],
 				description: fields.description[0],
 				type: fields.type[0],
-				user: fields.user[0]
+				user: fields.user[0],
+				isPrivate: req.body.isPrivate,
+				group: req.body.group
 	  }
 	  if(fields.type[0].match('image.*')){
 		  var url = fields.url[0];

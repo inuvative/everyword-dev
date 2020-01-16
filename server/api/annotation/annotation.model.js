@@ -13,7 +13,8 @@ var AnnotationSchema = new Schema({
   }],
   references: [{type: Schema.ObjectId, ref: 'Reference'}],
   comments: [{type: Schema.ObjectId, ref: 'Comment'}],
-  media: [{type: Schema.ObjectId, ref: 'Media'}]
+  media: [{type: Schema.ObjectId, ref: 'Media'}],
+  group: {type: Schema.ObjectId, ref: 'Group'}
 });
 
 module.exports = mongoose.model('Annotation', AnnotationSchema);

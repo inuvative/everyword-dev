@@ -322,29 +322,28 @@ function populateFeed(req,res,entries){
 		  	.on('data',	function(e){
 	   		  Follow.findOne({user:e.user._id}).select('followers').lean().exec(function(err,e2){
 	   			  e.followers=e2 && e2.followers ? e2.followers: [];
-	   			  var anno = e.comment||e.media||e.reference;
-	   			  Remark.find({_id:{$in : anno.remarks}}).populate('user').exec(function(err,remarks){
-					  if(e.comment){
-						  e.comment.user=e.user;
-						  e.comment.remarks = remarks||[];
-						  Group.findOne({_id: e.comment.group}, function(err, group){
-							  e.comment.group=group;
-							  feedEntries.push(e);
-						  });
-					  }
-					  else if(e.media) {
-						  e.media.user=e.user;
-						  Image.findOne({_id: e.media.image}, function(err,image){
-							  e.media.image=image;
-							  e.media.remarks = remarks||[];
-							  feedEntries.push(e);
-						  });
-					  } else if(e.reference){
-						  e.reference.user = e.user;
-						  e.reference.remarks = remarks||[];
-						  feedEntries.push(e);
-					  }	   				  
-	   			  });
+				  var anno = e.comment||e.media||e.reference;
+				  if (!anno.group) {
+					Remark.find({_id:{$in : anno.remarks}}).populate('user').exec(function(err,remarks){
+						if(e.comment){
+							e.comment.user=e.user;
+							e.comment.remarks = remarks||[];
+							feedEntries.push(e);
+						}
+						else if(e.media) {
+							e.media.user=e.user;
+							Image.findOne({_id: e.media.image}, function(err,image){
+								e.media.image=image;
+								e.media.remarks = remarks||[];
+								feedEntries.push(e);
+							});
+						} else if(e.reference){
+							e.reference.user = e.user;
+							e.reference.remarks = remarks||[];
+							feedEntries.push(e);
+						}	   				  
+					});
+				  }	 
 	   		  });
 		  	})
 		  	.on('end',function(){
