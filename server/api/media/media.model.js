@@ -14,8 +14,7 @@ var MediaSchema = new Schema({
 	user: { type: Schema.ObjectId, ref: 'User'},
 	remarks: [{type: Schema.ObjectId, ref: 'Remark'}],
     likes: {type: Number, default: 0},
-	likers : [{type: Schema.ObjectId, ref: 'Like'}],
-	group: {type: Schema.ObjectId, ref: 'Group'}
+	likers : [{type: Schema.ObjectId, ref: 'Like'}]
 });
 
 module.exports = mongoose.model('Media', MediaSchema);

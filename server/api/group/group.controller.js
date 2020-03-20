@@ -15,9 +15,7 @@ var Reference = require('../reference/reference.model');
 var User = require('../user/user.model');
 var Follow = require('../homebase/follow.model');
 var groupSocket = require('./group.socket');
-var Like = require('../comment/like.model');
-var Remark = require('../remark/remark.model');
-var Image = require('../media/media.image');
+
 // Get list of groups
 exports.index = function(req, res) {
   Group.find(function (err, groups) {
@@ -41,7 +39,7 @@ exports.create = function(req, res) {
   Group.create(req.body, function(err, group) {
     if(err) { return handleError(res, err); }
     Homebase.findOne({login: req.body.creator}).populate('groups').exec(function(err,home){
-    	home.groups.concat([group]);
+    	home.groups.push(group);
     	home.save(function(err) {
     		if(err) { return handleError(res, err); }    		
     	    Group.populate(group, {path: 'members', model: 'User'}, function(err,grp) {
@@ -175,7 +173,7 @@ exports.updateMembers = function(req, res) {
     			}
     		}
         	if(!req.body.rejected) {
-        		group.members.concat([memberId]);
+        		group.members.push(memberId);
         	}
     	}
         group.save(function (err) {
@@ -186,7 +184,7 @@ exports.updateMembers = function(req, res) {
       				    if(err) { return handleError(res, err); }    
       				    if(homebase) {
       				    	if(_.findIndex(homebase.groups,group._id)===-1){
-      					    	homebase.groups.concat([group._id]);
+      					    	homebase.groups.push(group._id);
       				    		homebase.save(function(err) {
       							      if (err) { return handleError(res, err); }
       						    });					    		
@@ -317,59 +315,64 @@ exports.getFeedNew = function(req, res){
 	   		  });	   			
 		  },function(err){
 			  console.log("Sending feed to client")
-			  return res.status(200).json(feed);
+			  return sendJSON(res,feed);
 		  });	   			
  		});		  
 }
 
 exports.getFeed= function(req, res){
-	//   var groupId =  mongooseTypes.ObjectId(req.params.id).id;  
+	  var groupId =  mongooseTypes.ObjectId(req.params.id);  
 	  var dt = req.query.after !== undefined ? new Date(req.query.after) : new Date();
 	  var mm = dt.getMonth();
 	  var yyyy = dt.getFullYear();
 	  var dateQuery = req.query.after === undefined ? {$lte:dt} : {$lt : dt};
 	  Group.findById(req.params.id).populate('creator members').exec(function(err, group) {
-		  var feedEntries=[];
+		  var feed=[];
 		  var users = group.members.concat(group.creator).filter(Boolean).map(function(u){return u._id;});		  
 		  FeedEntry.find({user : {$in : users}, date: dateQuery}).lean().sort('-date').limit(20)
-			  .populate('user comment media reference')
-			  .stream()
-			  .on('data',function(e) {
-			   		  Follow.findOne({user:e.user._id}).select('followers').lean().exec(function(err,e2){		   		 
-						e.followers=e2 && e2.followers ? e2.followers: [];
-						var anno = e.comment||e.media||e.reference;
-						Remark.find({_id:{$in : anno.remarks}}).populate('user').exec(function(err,remarks){
-						 if(e.comment){
-							 e.comment.user=e.user;
-							 e.comment.remarks = remarks||[];
-							 if(_.isEqual(e.comment.group,group._id))
-							 	feedEntries.push(e);
-						 }
-						 else if(e.media) {
-							 e.media.user=e.user;
-							 if(_.isEqual(e.media.group, group._id)) {
-								Image.findOne({_id: e.media.image}, function(err,image){
-									e.media.image=image;
-									e.media.remarks = remarks||[];
-									feedEntries.push(e);
-								});   
-							 }
-						 } else if(e.reference){
-							 if(_.isEqual(e.reference.group, group._id)){
-								e.reference.user = e.user;
-								e.reference.remarks = remarks||[];
-								feedEntries.push(e);   
-							 }
-						 }	   				  
-						});
+		  	.populate('user comment media reference').exec(function(err,entries){
+				  each(entries, function(e ,next) {
+			   		  Follow.findOne({user:e.user._id}).select('followers').exec(function(err,e2){		   		 
+				   			  var followers=e2 && e2.followers ? e2.followers: [];
+							  if(e.comment){
+								  Comment.populate(e.comment, [{path: 'user', model: 'User'},{path: 'group', model: 'Group'}, {path : 'remarks', model:'Remark'}], function(err, comment){
+									  Comment.populate(comment,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(comment){
+										  comment.followers=followers;
+										  groupSocket.sendToFeed(groupId,{'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
+//											  feed.push({'_id': comment._id, 'user': comment.user, 'date': comment.date, 'comment' : comment});
+										  next();								  
+									  });
+								  });
+							  }
+							  else if(e.media) {
+								  Media.populate(e.media,[{path: 'user', model: 'User'},{path: 'image', model: 'Image'},{path : 'remarks', model:'Remark'}], function(err,media){
+									  Media.populate(media,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(med){
+										  med.followers=followers;
+										  groupSocket.sendToFeed(groupId,{'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
+//											  feed.push({'_id': med._id, 'user': med.user, 'date': med.date, 'media': med});
+										  next();
+									  });
+								  });
+							  }
+							  else if(e.reference){
+								  Reference.populate(e.reference,[{path: 'user', model: 'User'},{path : 'remarks', model:'Remark'}], function(err,reference){
+									  Reference.populate(reference,[{path: 'remarks.user', select: 'name', model: 'User'}]).then(function(ref){
+										  ref.followers=followers;
+										  groupSocket.sendToFeed(groupId,{'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref, 'followers':followers});
+//											  feed.push({'_id': ref._id, 'user': ref.user, 'date': ref.date, 'reference': ref});
+										  next();
+									  });
+								  });
+							  } else {
+								  next();						  
+							  }
 			   		  });
-				  })
-				  .on('end',function(){
-					var result = _.orderBy(feedEntries,['date'],['desc']);
-					return res.status(200).json(result);
+				  },function(err){
+					  return res.json({done:true});//feed)
 				  });		  	
 	   		  });		   			 
-	//   });  
+	  });
+
 /*	  Comment.find({user : { $in : users}, date: {$lte: dt}}).sort('-date').populate('user remarks').exec(function(err,comments){
 		  if(comments){
 			  for(var c in comments){

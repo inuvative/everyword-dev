@@ -11,8 +11,7 @@ var ReferenceSchema = new Schema({
 	isPrivate: Boolean,
 	likes: {type: Number, default: 0},
 	likers : [{type: Schema.ObjectId, ref: 'Like'}],
-	remarks: [{type: Schema.ObjectId, ref: 'Remark'}],
-	group: {type: Schema.ObjectId, ref: 'Group'}
+	remarks: [{type: Schema.ObjectId, ref: 'Remark'}]
 });
 
 module.exports = mongoose.model('Reference', ReferenceSchema);

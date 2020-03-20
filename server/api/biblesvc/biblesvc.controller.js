@@ -24,10 +24,11 @@ exports.getTestaments = function(req, res) {
 		LDS.aggregate([
 	        { "$group": { _id : { id: "$volume_id", tt: "$volume_short_title", title: "$volume_title"}}},
 	        {"$project" : { _id: 0, id: "$_id.id", tt: {"$toLower": "$_id.tt"}, title : "$_id.title"}}
-	    ],
-		function(err,lds) {
-			return res.status(200).send(lds)
-		});
+	    ]).cursor().exec()
+        .toArray(function(err, data) {
+            console.log(data);
+            res.json(data);
+        });
 	} else {
 		return res.status(200).send([{'tt': 'ot','title': 'Old Testament', 'id': 1},{'tt': 'nt' ,'title': 'New Testament', 'id': 2}])		
 	}

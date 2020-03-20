@@ -89,56 +89,41 @@ exports.update = function(req, res) {
 
 function updateAnnotation(current,updates,toDelete){
 	if(toDelete){
-		return _.difference(current,updates);
+		return _.differenceBy(current,updates,'id');
 	}
-	return _.union(current,updates);
+	return _.unionBy(current,updates,'id');
 }
 
 // Deletes a annotation from the DB.
 exports.destroy = function(req, res) {
   Annotation.findById(req.params.id, function (err, annotation) {
     if(err) { return handleError(res, err); }
-	if(!annotation) { return res.status(404).send('Not Found'); }
-	var count = annotation.comments.length + annotation.media.length + annotation.references.length;
-	if(count === 0){
-		annotation.remove(function(err) {
-			if(err) { return handleError(res, err); }
-			return res.status(200).send('Annotation deleted');
-		});	  
-	} else {
-		return res.status(409).send('Unable to delete')
-	}
+    if(!annotation) { return res.status(404).send('Not Found'); }
+    annotation.remove(function(err) {
+      if(err) { return handleError(res, err); }
+      return res.status(204).send('No Content');
+    });
   });
 };
 
 exports.annotationCount = function(req, res){
-	  var group = req.query.group ? mongooseTypes.ObjectId(req.query.group).id : undefined;
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	  .populate('comments references media').exec(function (err, annotation) {
 		    if(err) { return handleError(res, err); }    
-			if(!annotation) { return res.send(null); }
-			var _filter = function(c) {
-				if(c.isPrivate && c.user && !_.isEqual(c.user.id,mongooseTypes.ObjectId(req.params.user).id))
-				{
-					return false;
-				}
-				if(group && (!c.group || !_.isEqual(c.group.id, group))) {
-					return false;
-				}
-		    	return true;
-		    };	    
-			var comments = annotation.comments.filter(_filter);
-			var media = annotation.media.filter(_filter);
-			var refs = annotation.references.filter(_filter);
-		    var count = comments.length + refs.length + media.length;
+		    if(!annotation) { return res.send(null); }
+		    var groups = req.body.groups ? _.map(req.body.groups,function(g){return mongooseTypes.ObjectId(g).id;}) : [];
+		    var comments = annotation.comments.filter(function(c) {
+		    	return c.user && (!c.isPrivate || (c.group && groups.indexOf(c.group.id) !==-1) || c.user.id===mongooseTypes.ObjectId(req.params.user).id);
+		    });
+		    var count = comments.length + annotation.references.length + annotation.media.length;
 		    
-		    return res.json({ 'commentCount' : comments.length, 'referenceCount': refs.length, 'mediaCount': media.length});
+		    return res.json({ 'commentCount' : comments.length, 'referenceCount': annotation.references.length, 'mediaCount': annotation.media.length});
 	  });	
 };
 
 exports.findAnnotation = function(req, res) {
 	  var annoEntryId = req.query.annoEntryId;
-	  var query={ $or: [{'comments': annoEntryId},{'media': annoEntryId}, {'references': annoEntryId}]};
+      var query={ $or: [{'comments': annoEntryId},{'media': annoEntryId}, {'references': annoEntryId}]};
       Annotation.findOne(query, function(err, anno) {
 		    if(!anno){return res.send(null);}
 		    var tt = javascripture.api.reference.getTestament(anno.book);	
@@ -148,7 +133,7 @@ exports.findAnnotation = function(req, res) {
 };
 
 exports.findComments = function(req, res) {
-	  var group = req.query.group ? mongooseTypes.ObjectId(req.query.group).id : undefined
+	
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('comments')
 	    .lean()
@@ -163,17 +148,13 @@ exports.findComments = function(req, res) {
 		    	Comment.populate(anno.comments, opts).then(function(comments){
 			    	anno.comments=[];
 		    		each(comments, function(comm,next) {
-						if(group && !_.isEqual(comm.group.id, group)){
-							next();
-						} else {
-							if(comm.user){
-								Follow.findOne({user:comm.user._id}).select('followers').exec(function(err,u){
-									comm.followers = u && u.followers ? u.followers : []; 
-									anno.comments.push(comm);
-									next();
-								});		    				
-							}	
-						}
+		    			if(comm.user){
+				    		Follow.findOne({user:comm.user._id}).select('followers').exec(function(err,u){
+				    			comm.followers = u && u.followers ? u.followers : []; 
+				    			anno.comments.push(comm);
+				    			next();
+				    		});		    				
+		    			}
 		  		  },function(err){
  		    		  return res.status(200).json(anno);
 				  });	   			
@@ -243,7 +224,6 @@ exports.findFootnotes = function(req, res) {
 };
 
 exports.findReferences = function(req, res) {
-	  var group = req.query.group ? mongooseTypes.ObjectId(req.query.group).id : undefined
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('references')
 	    .lean()
@@ -254,17 +234,13 @@ exports.findReferences = function(req, res) {
 	    	Reference.populate(annotation.references, opts).then(function(references){
 	    		annotation.references = [];
 	    		each(references, function(ref,next) {
-					if(group && !_.isEqual(ref.group.id, group)) {
-						next()
-					} else {
-						if(references.user){
-							Follow.findOne({user:ref.user._id}).select('followers').exec(function(err,u){
-								ref.followers = u && u.followers ? u.followers : []; 
-								annotation.references.push(ref);
-								next();
-							});	    				
-						}	
-					}
+	    			if(references.user){
+			    		Follow.findOne({user:ref.user._id}).select('followers').exec(function(err,u){
+			    			ref.followers = u && u.followers ? u.followers : []; 
+			    			annotation.references.push(ref);
+			    			next();
+			    		});	    				
+	    			}
 	  		  },function(err){
 	  			return res.status(200).json(annotation);
 			  });	   				    		
@@ -273,7 +249,6 @@ exports.findReferences = function(req, res) {
 };
 
 exports.findMedia = function(req, res) {
-	  var group = req.query.group ? mongooseTypes.ObjectId(req.query.group).id : undefined
 	  Annotation.findOne({ 'book': req.params.book, 'chapter': Number(req.params.chapter), 'verse' : Number(req.params.verse)})
 	    .populate('media')
 	    .lean()
@@ -286,17 +261,13 @@ exports.findMedia = function(req, res) {
 		    	Media.populate(annotation.media, opts).then(function(media){
 		    		annotation.media = [];
 		    		each(media, function(media,next) {
-						if(group && !_.isEqual(media.group.id, group)) {
-							next();
-						} else {
-							if(media.user){
-								Follow.findOne({user:media.user._id}).select('followers').exec(function(err,u){
-									media.followers = u && u.followers ? u.followers : []; 
-									annotation.media.push(media);
-									next();
-								});		    				
-							}
-						}
+		    			if(media.user){
+				    		Follow.findOne({user:media.user._id}).select('followers').exec(function(err,u){
+				    			media.followers = u && u.followers ? u.followers : []; 
+				    			annotation.media.push(media);
+				    			next();
+				    		});		    				
+		    			}
 		  		  },function(err){
 		  			return res.status(200).json(annotation);
 				  });	   				    				    		

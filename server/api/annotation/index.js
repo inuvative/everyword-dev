@@ -12,7 +12,7 @@ router.put('/:id', controller.update);
 router.patch('/:id', controller.update);
 router.delete('/:id', controller.destroy);
 
-router.get('/:book/:chapter/:verse/count/:user', controller.annotationCount)
+router.post('/:book/:chapter/:verse/count/:user', controller.annotationCount)
 router.get('/:book/:chapter/:verse/comments', controller.findComments);
 router.post('/:book/:chapter/:verse/footnotes', controller.findFootnotes);
 router.get('/:book/:chapter/:verse/references', controller.findReferences);

@@ -17,6 +17,7 @@ var HomebaseSchema = new Schema({
   preferences : { },
   comments : [{type: Schema.ObjectId, ref:'Comment'}],
   messages : [{type: Schema.ObjectId, ref: 'Message'}],
+  books : [{ tt: String, title: String}]
 });
 
 module.exports = mongoose.model('Homebase', HomebaseSchema);
